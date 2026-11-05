@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>ムシヨケ・ナビ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 地図(左)＋条件と比較パネル(右)。スマホでは縦に積む。 */
+:root{
+  --bg:#eef2f1; --surface:#ffffff; --ink:#1d2b33; --muted:#5b6c72; --line:#d3dcdb;
+  --accent:#137a6f; --accent-soft:#d5ece8;
+  --good:#2f8a4e; --warn:#c98a12; --bad:#c2412d;
+  --map-ground:#f6f8f5; --map-block:#e3e8e4; --map-road:#ffffff; --map-road-edge:#cdd5d2;
+  --map-water:#9cc8d9; --map-park:#bfdcb3; --map-food:#f1d3b8; --map-label:#41525a;
+  --display:"Dela Gothic One","Hiragino Kaku Gothic StdN",sans-serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121a1d; --surface:#1a2428; --ink:#e3ebea; --muted:#9aaaae; --line:#2c3a3f;
+  --accent:#4cc2b2; --accent-soft:#183a37;
+  --good:#5cc27c; --warn:#e4ad3d; --bad:#ec6a55;
+  --map-ground:#172024; --map-block:#1f2b30; --map-road:#2b393f; --map-road-edge:#36464c;
+  --map-water:#2f5e70; --map-park:#2c4a33; --map-food:#4d3a2a; --map-label:#b7c5c8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121a1d; --surface:#1a2428; --ink:#e3ebea; --muted:#9aaaae; --line:#2c3a3f;
+  --accent:#4cc2b2; --accent-soft:#183a37;
+  --good:#5cc27c; --warn:#e4ad3d; --bad:#ec6a55;
+  --map-ground:#172024; --map-block:#1f2b30; --map-road:#2b393f; --map-road-edge:#36464c;
+  --map-water:#2f5e70; --map-park:#2c4a33; --map-food:#4d3a2a; --map-label:#b7c5c8; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin-bottom:16px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,4vw,36px);letter-spacing:.02em;margin:0;text-wrap:balance}
+h1 span{color:var(--accent)}
+.tagline{color:var(--muted);margin:0}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.mapbox{padding:10px}
+svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);padding:8px 6px 2px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.heat{display:inline-block;width:56px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--good),var(--warn),var(--bad));margin:0 6px;vertical-align:1px}
+.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+h2{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chipbtn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
+.chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.chipbtn:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.field label{font-size:12.5px;color:var(--muted)}
+.field output{font-family:var(--mono);font-size:13px;color:var(--ink)}
+select,input[type=range]{width:100%;font:inherit}
+select{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+input[type=range]{accent-color:var(--accent)}
+.check{display:flex;align-items:center;gap:6px;font-size:13.5px}
+.filter{display:flex;flex-wrap:wrap;gap:6px}
+.routes{display:flex;flex-direction:column;gap:8px}
+.route{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer}
+.route[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.badge{font-family:var(--display);font-size:18px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--ink)}
+.route[aria-pressed="true"] .badge{background:var(--accent);color:var(--surface)}
+.rname{font-weight:700}
+.rmeta{font-size:12.5px;color:var(--muted)}
+.score{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.score b{font-size:22px;display:block;line-height:1.1}
+.score small{font-size:11px;color:var(--muted);font-family:var(--body)}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:2px}
+.lv-low{color:var(--good)} .lv-mid{color:var(--warn)} .lv-high{color:var(--bad)}
+.pill.rec{background:var(--accent-soft);color:var(--accent)}
+.tags{grid-column:2 / 4;display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:11.5px;border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--muted)}
+.ai{border-color:var(--accent)}
+.aihead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.aihead h2{margin:0}
+.btn{font:inherit;font-weight:700;border:none;border-radius:8px;padding:8px 16px;background:var(--accent);color:var(--surface);cursor:pointer}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);font-weight:500;padding:6px 12px}
+.aiout{white-space:pre-wrap;min-height:3em;font-size:14.5px}
+.ainote{font-size:12px;color:var(--muted);margin-top:8px}
+.rule{font-size:13.5px;color:var(--ink);margin:0}
+footer{margin-top:18px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.hp{transition:stroke .3s}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>ムシヨケ<span>・</span>ナビ</h1>
+    <p class="tagline">虫に出会いにくい道を、気温・時間帯・周りの環境から選びます</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel mapbox" aria-label="地図">
+      <svg id="map" viewBox="0 0 600 420" role="img" aria-label="駅から自宅までの3つのルートと周辺環境"></svg>
+      <div class="legend">
+        <span><i style="background:var(--map-water)"></i>川・水辺</span>
+        <span><i style="background:var(--map-park)"></i>公園・緑道</span>
+        <span><i style="background:var(--map-food)"></i>飲食街</span>
+        <span><i style="background:var(--muted)"></i>ゴミ置き場</span>
+        <span><i style="background:var(--warn);border-radius:50%"></i>夜も明るい店・自販機</span>
+        <span>虫リスク 低<span class="heat"></span>高</span>
+      </div>
+    </section>
+
+    <div class="side">
+      <section class="panel" aria-labelledby="h-cond">
+        <h2 id="h-cond">いまの条件</h2>
+        <div class="presets" id="presets"></div>
+        <div class="form">
+          <div class="field"><label for="month">月</label><select id="month"></select></div>
+          <div class="field"><label for="time">時間帯</label>
+            <select id="time"><option value="morning">朝</option><option value="day">昼</option><option value="dusk">夕方</option><option value="night">夜</option></select></div>
+          <div class="field"><label for="temp">気温 <output id="tempOut"></output></label><input type="range" id="temp" min="0" max="38" step="1"></div>
+          <div class="field"><label for="hum">湿度 <output id="humOut"></output></label><input type="range" id="hum" min="20" max="100" step="5"></div>
+          <label class="check"><input type="checkbox" id="rain"> 雨のあと</label>
+        </div>
+        <h2 style="margin-top:14px">特に避けたい虫</h2>
+        <div class="filter" id="filter"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-routes">
+        <h2 id="h-routes">ルート比較（駅 → 自宅）</h2>
+        <div class="routes" id="routes"></div>
+      </section>
+
+      <section class="panel ai" aria-labelledby="h-ai">
+        <div class="aihead">
+          <h2 id="h-ai">AIのおすすめ</h2>
+          <div style="display:flex;gap:6px">
+            <button class="btn ghost" id="stop" hidden>止める</button>
+            <button class="btn" id="ask">AIに理由つきで聞く</button>
+          </div>
+        </div>
+        <div class="aiout" id="aiout"><p class="rule" id="rule"></p></div>
+        <p class="ainote" id="ainote">AIは、上の条件と各ルートの数値を読んで判断します。</p>
+      </section>
+    </div>
+  </div>
+  <footer>プロトタイプ v0.1 ｜ 地図は動作確認用の架空の街です。虫リスクは環境と気象条件からの推定値で、実際の出現を保証するものではありません。</footer>
+</div>
+
+<script>
+(() => {
+  // ---------- 架空の街データ ----------
+  const START = {x:60,y:330,label:"駅"}, GOAL = {x:540,y:60,label:"自宅"};
+  const ROUTES = [
+    {id:"A", name:"公園ショートカット", desc:"公園を斜めに抜け、川沿いの遊歩道を通る",
+     pts:[[60,330],[180,330],[300,240],[420,240],[420,150],[540,150],[540,60]]},
+    {id:"B", name:"商店街ルート", desc:"飲食店が並ぶ商店街を抜ける",
+     pts:[[60,330],[60,150],[300,150],[300,60],[540,60]]},
+    {id:"C", name:"大通りルート", desc:"広い大通りを回り込む",
+     pts:[[60,330],[540,330],[540,60]]},
+  ];
+  const RIVER = [[0,180],[150,198],[300,212],[450,204],[600,186]];
+  const FEATURES = [
+    {type:"river", poly:RIVER, pad:40},
+    {type:"park", rect:[190,250,410,320], pad:14, name:"中央公園"},
+    {type:"green", rect:[310,318,450,342], pad:6, name:"緑道"},
+    {type:"food", rect:[90,128,320,172], pad:4, name:"飲食街"},
+    {type:"garbage", c:[140,165], r:24}, {type:"garbage", c:[255,135], r:24},
+    {type:"garbage", c:[470,345], r:24}, {type:"garbage", c:[330,72], r:22},
+    {type:"lights", c:[240,150], r:30}, {type:"lights", c:[555,280], r:30},
+    {type:"lights", c:[60,255], r:28},
+  ];
+  const FEAT_LABEL = {river:"川・水辺", park:"公園", green:"緑道", food:"飲食街", garbage:"ゴミ置き場", lights:"夜も明るい店"};
+
+  // 虫の種類 × 環境の重み
+  const BUGS = [
+    {id:"mosq", name:"蚊"}, {id:"roach", name:"ゴキブリ"},
+    {id:"flyer", name:"羽虫・ユスリカ"}, {id:"hae", name:"ハエ"},
+  ];
+  const W = {
+    river:{mosq:.9, flyer:.8},
+    park:{mosq:1.0, flyer:.5, hae:.1},
+    green:{mosq:.5, flyer:.3},
+    food:{roach:1.0, hae:.8},
+    garbage:{roach:.7, hae:1.0},
+    lights:{flyer:1.0, roach:.2},
+  };
+  const SEASON = [.05,.05,.15,.35,.6,.85,1,1,.9,.6,.3,.1];
+  const TIME = {
+    mosq:{morning:1.0,day:.5,dusk:1.5,night:.8},
+    roach:{morning:.3,day:.2,dusk:.8,night:1.5},
+    flyer:{morning:.3,day:.4,dusk:1.0,night:1.4},
+    hae:{morning:.8,day:1.2,dusk:.8,night:.2},
+  };
+  const LIGHTS_TIME = {morning:.1,day:.1,dusk:.7,night:1};
+  const TIME_JA = {morning:"朝",day:"昼",dusk:"夕方",night:"夜"};
+  const lin = (t,pts) => { // 区分線形
+    if (t<=pts[0][0]) return pts[0][1];
+    for (let i=1;i<pts.length;i++) if (t<=pts[i][0]) {
+      const [x0,y0]=pts[i-1],[x1,y1]=pts[i]; return y0+(y1-y0)*(t-x0)/(x1-x0);
+    }
+    return pts[pts.length-1][1];
+  };
+  const TEMP = {
+    mosq:[[13,0],[22,1],[32,1],[36,.6]], roach:[[12,0],[25,1]],
+    flyer:[[10,0],[22,1]], hae:[[12,0],[25,1]],
+  };
+
+  const PRESETS = [
+    {id:"summer-dusk", name:"真夏の夕方", s:{month:8,time:"dusk",temp:29,hum:75,rain:false}},
+    {id:"summer-night", name:"夏の夜", s:{month:7,time:"night",temp:27,hum:80,rain:false}},
+    {id:"rainy", name:"梅雨の雨上がり", s:{month:6,time:"morning",temp:23,hum:90,rain:true}},
+    {id:"today", name:"今日の朝（11月）", s:{month:11,time:"morning",temp:12,hum:60,rain:false}},
+  ];
+  const state = {month:8,time:"dusk",temp:29,hum:75,rain:false,avoid:new Set(["roach"]),selected:null,preset:"summer-dusk"};
+
+  // ---------- 幾何 ----------
+  const segDist = (p,a,b) => {
+    const dx=b[0]-a[0], dy=b[1]-a[1], l=dx*dx+dy*dy;
+    let t = l ? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l : 0; t=Math.max(0,Math.min(1,t));
+    return Math.hypot(p[0]-a[0]-t*dx, p[1]-a[1]-t*dy);
+  };
+  const near = (p,f) => {
+    if (f.poly) { let m=1e9; for (let i=1;i<f.poly.length;i++) m=Math.min(m,segDist(p,f.poly[i-1],f.poly[i])); return m<=f.pad; }
+    if (f.rect) { const [x0,y0,x1,y1]=f.rect; const dx=Math.max(x0-p[0],0,p[0]-x1), dy=Math.max(y0-p[1],0,p[1]-y1); return Math.hypot(dx,dy)<=f.pad; }
+    return Math.hypot(p[0]-f.c[0],p[1]-f.c[1])<=f.r;
+  };
+  const STEP = 5, M_PER_UNIT = 2;
+  ROUTES.forEach(r => { // ルートを5単位ごとに分割し、各点がどの環境に近いかを前計算
+    r.samples=[]; r.len=0;
+    for (let i=1;i<r.pts.length;i++){
+      const a=r.pts[i-1], b=r.pts[i], L=Math.hypot(b[0]-a[0],b[1]-a[1]), n=Math.max(1,Math.round(L/STEP));
+      for (let k=0;k<n;k++){
+        const t0=k/n, t1=(k+1)/n, tm=(t0+t1)/2;
+        const p=[a[0]+(b[0]-a[0])*tm, a[1]+(b[1]-a[1])*tm];
+        r.samples.push({p, a:[a[0]+(b[0]-a[0])*t0,a[1]+(b[1]-a[1])*t0], b:[a[0]+(b[0]-a[0])*t1,a[1]+(b[1]-a[1])*t1], len:L/n,
+          types:[...new Set(FEATURES.filter(f=>near(p,f)).map(f=>f.type))]});
+      }
+      r.len+=L;
+    }
+    r.meters=Math.round(r.len*M_PER_UNIT/10)*10;
+    r.minutes=Math.round(r.len*M_PER_UNIT/80);
+    r.featM={};
+    r.samples.forEach(s=>s.types.forEach(t=>{r.featM[t]=(r.featM[t]||0)+s.len*M_PER_UNIT}));
+  });
+
+  // ---------- リスク計算 ----------
+  const activity = () => {
+    const a={};
+    BUGS.forEach(({id})=>{
+      let v = lin(state.temp,TEMP[id]) * (.3+.7*SEASON[state.month-1]) * TIME[id][state.time];
+      v *= id==="mosq" ? (.5+state.hum/100) : (.8+.4*state.hum/100);
+      if (state.rain && (id==="mosq"||id==="flyer")) v*= id==="mosq"?1.3:1.2;
+      if (state.avoid.has(id)) v*=2;
+      a[id]=v;
+    });
+    return a;
+  };
+  const K = 8;
+  const evaluate = () => {
+    const act = activity();
+    return ROUTES.map(r=>{
+      const byBug={}; BUGS.forEach(b=>byBug[b.id]=0);
+      const local=r.samples.map(s=>{
+        let v=0;
+        s.types.forEach(t=>{ const lt = t==="lights"?LIGHTS_TIME[state.time]:1;
+          for (const b in W[t]) { const x=W[t][b]*lt*act[b]; byBug[b]+=x*s.len/100; v+=x; } });
+        return v;
+      });
+      const raw=Object.values(byBug).reduce((x,y)=>x+y,0);
+      return {r, score:Math.round(100*(1-Math.exp(-raw/K))), byBug, local};
+    });
+  };
+  const level = s => s<34?{c:"lv-low",t:"低め"}:s<60?{c:"lv-mid",t:"注意"}:{c:"lv-high",t:"高め"};
+
+  // ---------- 地図描画 ----------
+  const svg=document.getElementById("map"), NS="http://www.w3.org/2000/svg";
+  const el=(tag,attrs,parent=svg)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent.appendChild(e);return e;};
+  const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const mix=(c1,c2,t)=>{const h=c=>c.replace("#","").match(/../g).map(x=>parseInt(x,16));const a=h(c1),b=h(c2);return "#"+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,"0")).join("");};
+  const heatColor=(v,max)=>{const t=Math.min(1,v/max);const g=css("--good"),w=css("--warn"),b=css("--bad");return t<.5?mix(g,w,t*2):mix(w,b,(t-.5)*2);};
+
+  const XS=[60,180,300,420,540], YS=[60,150,240,330];
+  let routeLayer;
+  const drawBase=()=>{
+    svg.innerHTML="";
+    el("rect",{x:0,y:0,width:600,height:420,fill:"var(--map-ground)"});
+    // 街区
+    const bx=[0,...XS,600], by=[0,...YS,420];
+    for(let i=0;i<bx.length-1;i++)for(let j=0;j<by.length-1;j++)
+      el("rect",{x:bx[i]+12,y:by[j]+12,width:Math.max(0,bx[i+1]-bx[i]-24),height:Math.max(0,by[j+1]-by[j]-24),rx:4,fill:"var(--map-block)"});
+    // 環境
+    FEATURES.forEach(f=>{
+      if(f.type==="park") el("rect",{x:f.rect[0],y:f.rect[1],width:f.rect[2]-f.rect[0],height:f.rect[3]-f.rect[1],rx:10,fill:"var(--map-park)"});
+      if(f.type==="green") el("rect",{x:f.rect[0],y:f.rect[1],width:f.rect[2]-f.rect[0],height:f.rect[3]-f.rect[1],rx:6,fill:"var(--map-park)",opacity:.8});
+      if(f.type==="food") el("rect",{x:f.rect[0],y:f.rect[1],width:f.rect[2]-f.rect[0],height:f.rect[3]-f.rect[1],rx:6,fill:"var(--map-food)"});
+    });
+    // 道路
+    const road=(x1,y1,x2,y2,w)=>{el("line",{x1,y1,x2,y2,stroke:"var(--map-road-edge)","stroke-width":w+2,"stroke-linecap":"round"});};
+    const road2=(x1,y1,x2,y2,w)=>{el("line",{x1,y1,x2,y2,stroke:"var(--map-road)","stroke-width":w,"stroke-linecap":"round"});};
+    const roads=[];XS.forEach(x=>roads.push([x,30,x,390,x===540?16:10]));YS.forEach(y=>roads.push([30,y,570,y,y===330?16:10]));
+    roads.push([180,330,300,240,6]);
+    roads.forEach(r=>road(...r));roads.forEach(r=>road2(...r));
+    // 川（道路の上に描いて橋を表現）
+    const rp="M"+RIVER.map(p=>p.join(",")).join(" L");
+    el("path",{d:rp,fill:"none",stroke:"var(--map-water)","stroke-width":22,"stroke-linecap":"round","stroke-linejoin":"round"});
+    XS.forEach(x=>{ let y=0; for(let i=1;i<RIVER.length;i++){const[a,b]=[RIVER[i-1],RIVER[i]]; if(x>=a[0]&&x<=b[0]) y=a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);}
+      el("rect",{x:x-(x===540?9:6),y:y-15,width:x===540?18:12,height:30,rx:2,fill:"var(--map-road)",stroke:"var(--map-road-edge)"}); });
+    // 木
+    for(let i=0;i<14;i++){const x=205+(i%7)*31,y=i<7?265:302; if(!(Math.abs((y-330)/(x-180)+0.75)<.25)) el("circle",{cx:x,cy:y,r:5,fill:"var(--good)",opacity:.35});}
+    // 点の環境
+    FEATURES.forEach(f=>{
+      if(f.type==="garbage") el("rect",{x:f.c[0]-5,y:f.c[1]-5,width:10,height:10,rx:2,fill:"var(--muted)"});
+      if(f.type==="lights"){el("circle",{cx:f.c[0],cy:f.c[1],r:11,fill:"var(--warn)",opacity:.25});el("circle",{cx:f.c[0],cy:f.c[1],r:5,fill:"var(--warn)"});}
+    });
+    // ラベル
+    const lab=(x,y,t,size=11)=>{const e=el("text",{x,y,"font-size":size,fill:"var(--map-label)","font-family":"var(--body)","text-anchor":"middle"});e.textContent=t;};
+    lab(300,290,"中央公園");lab(205,124,"飲食街");lab(110,212,"川");lab(380,357,"緑道",10);lab(470,212,"橋",10);
+    routeLayer=el("g",{});
+    // 発着点
+    [START,GOAL].forEach(p=>{el("circle",{cx:p.x,cy:p.y,r:13,fill:"var(--ink)"});const t=el("text",{x:p.x,y:p.y+4,"font-size":11,"font-weight":700,fill:"var(--surface)","text-anchor":"middle","font-family":"var(--body)"});t.textContent=p.label;});
+  };
+
+  const LABEL_POS={A:[338,232],B:[150,143],C:[300,322]};
+  const drawRoutes=(res)=>{
+    routeLayer.innerHTML="";
+    const sel=state.selected;
+    const max=Math.max(.5,...res.flatMap(x=>x.local));
+    res.forEach(x=>{ if(x.r.id===sel) return;
+      el("polyline",{points:x.r.pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"var(--muted)","stroke-width":3,"stroke-dasharray":"2 6","stroke-linecap":"round","stroke-linejoin":"round",opacity:.8},routeLayer);
+    });
+    const cur=res.find(x=>x.r.id===sel);
+    el("polyline",{points:cur.r.pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:"var(--ink)","stroke-width":10,"stroke-linecap":"round","stroke-linejoin":"round",opacity:.85},routeLayer);
+    cur.r.samples.forEach((s,i)=>el("line",{class:"hp",x1:s.a[0],y1:s.a[1],x2:s.b[0],y2:s.b[1],stroke:heatColor(cur.local[i],max),"stroke-width":6,"stroke-linecap":"round"},routeLayer));
+    res.forEach(x=>{const[lx,ly]=LABEL_POS[x.r.id];const on=x.r.id===sel;
+      el("circle",{cx:lx,cy:ly,r:10,fill:on?"var(--accent)":"var(--surface)",stroke:on?"var(--accent)":"var(--muted)"},routeLayer);
+      const t=el("text",{x:lx,y:ly+4,"font-size":11,"font-weight":700,fill:on?"var(--surface)":"var(--ink)","text-anchor":"middle","font-family":"var(--body)"},routeLayer);t.textContent=x.r.id;});
+  };
+
+  // ---------- UI ----------
+  const $=id=>document.getElementById(id);
+  for(let m=1;m<=12;m++){const o=document.createElement("option");o.value=m;o.textContent=m+"月";$("month").appendChild(o);}
+  PRESETS.forEach(p=>{const b=document.createElement("button");b.className="chipbtn";b.type="button";b.textContent=p.name;b.dataset.id=p.id;
+    b.onclick=()=>{Object.assign(state,p.s);state.preset=p.id;state.selected=null;sync();};$("presets").appendChild(b);});
+  BUGS.forEach(b=>{const x=document.createElement("button");x.className="chipbtn";x.type="button";x.textContent=b.name;x.dataset.id=b.id;
+    x.onclick=()=>{state.avoid.has(b.id)?state.avoid.delete(b.id):state.avoid.add(b.id);state.selected=null;render();};$("filter").appendChild(x);});
+  const onInput=()=>{state.month=+$("month").value;state.time=$("time").value;state.temp=+$("temp").value;state.hum=+$("hum").value;state.rain=$("rain").checked;state.preset=null;state.selected=null;render();};
+  ["month","time","temp","hum","rain"].forEach(id=>$(id).addEventListener("input",onInput));
+
+  let last=[];
+  const sync=()=>{$("month").value=state.month;$("time").value=state.time;$("temp").value=state.temp;$("hum").value=state.hum;$("rain").checked=state.rain;render();};
+  const ruleText=(res)=>{
+    const sorted=[...res].sort((a,b)=>a.score-b.score), best=sorted[0], worst=sorted[2];
+    if (worst.score<15) return `いまの条件では、どのルートも虫は少なめです。いちばん近い「${res.find(x=>x.r.minutes===Math.min(...res.map(y=>y.r.minutes))).r.name}」で問題ありません。`;
+    const topBug=b=>BUGS.reduce((m,x)=>b.byBug[x.id]>b.byBug[m.id]?x:m,BUGS[0]).name;
+    return `ルール判定では「${best.r.name}」がおすすめです（リスク ${best.score}）。「${worst.r.name}」は${topBug(worst)}に出会いやすい環境を通ります。AIに聞くと、条件を踏まえた理由を説明します。`;
+  };
+  const render=()=>{
+    document.querySelectorAll("#presets .chipbtn").forEach(b=>b.setAttribute("aria-pressed",b.dataset.id===state.preset));
+    document.querySelectorAll("#filter .chipbtn").forEach(b=>b.setAttribute("aria-pressed",state.avoid.has(b.dataset.id)));
+    $("tempOut").textContent=state.temp+"℃";$("humOut").textContent=state.hum+"%";
+    const res=evaluate(); last=res;
+    const best=[...res].sort((a,b)=>a.score-b.score||a.r.minutes-b.r.minutes)[0];
+    if(!state.selected) state.selected=best.r.id;
+    const box=$("routes");box.innerHTML="";
+    res.forEach(x=>{const lv=level(x.score);const b=document.createElement("button");b.type="button";b.className="route";b.setAttribute("aria-pressed",x.r.id===state.selected);
+      const tags=Object.entries(x.r.featM).sort((a,b)=>b[1]-a[1]).map(([t,m])=>`<span class="tag">${FEAT_LABEL[t]} ${Math.round(m/10)*10}m</span>`).join("");
+      b.innerHTML=`<span class="badge">${x.r.id}</span><span><span class="rname">${x.r.name}</span>${x===best?'<span class="pill rec">おすすめ</span>':''}<br><span class="rmeta">徒歩${x.r.minutes}分・${(x.r.meters/1000).toFixed(1)}km・${x.r.desc}</span></span><span class="score ${lv.c}"><b>${x.score}</b><small>${lv.t}</small></span><span class="tags">${tags}</span>`;
+      b.onclick=()=>{state.selected=x.r.id;render();};box.appendChild(b);});
+    drawRoutes(res);
+    if(!aiBusy){ $("aiout").innerHTML='<p class="rule" id="rule"></p>'; $("rule").textContent=ruleText(res); }
+  };
+
+  // ---------- AI（Gemini・サーバー経由） ----------
+  // APIキーはブラウザに置かない。数値データだけを /api/recommend に送り、
+  // サーバー側（Vercel）が環境変数のキーでGeminiに問い合わせる。
+  let aiBusy=false, ctl=null;
+  const buildPayload=(res)=>({
+    conditions:{month:state.month,time:TIME_JA[state.time],temp:state.temp,hum:state.hum,rain:state.rain,
+      avoid:[...state.avoid].map(id=>BUGS.find(b=>b.id===id).name)},
+    routes:res.map(x=>({id:x.r.id,name:x.r.name,desc:x.r.desc,minutes:x.r.minutes,meters:x.r.meters,score:x.score,
+      features:Object.fromEntries(Object.entries(x.r.featM).map(([t,m])=>[FEAT_LABEL[t],Math.round(m)])),
+      bugs:Object.fromEntries(BUGS.map(b=>[b.name,+x.byBug[b.id].toFixed(2)]))}))
+  });
+  $("ask").textContent="AI（Gemini）に理由つきで聞く";
+  $("ask").onclick=async()=>{
+    aiBusy=true; ctl=new AbortController();
+    $("ask").disabled=true; $("stop").hidden=false;
+    const out=$("aiout"); out.textContent="考えています…";
+    try{
+      const r=await fetch("/api/recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(buildPayload(last)),signal:ctl.signal});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.text) throw new Error(j.error||"AIに接続できませんでした。");
+      out.textContent=j.text;
+      $("ainote").textContent="Gemini（無料枠）の回答です。条件を変えたら、もう一度聞いてみてください。";
+    }catch(e){
+      aiBusy=false; render();
+      if(e.name!=="AbortError") $("ainote").textContent=(e.message||"AIに接続できませんでした。")+" いまはルール判定を表示しています。";
+    }finally{ aiBusy=false; $("ask").disabled=false; $("stop").hidden=true; }
+  };
+  $("stop").onclick=()=>ctl?.abort();
+  $("ainote").textContent="AIは、上の条件と各ルートの数値だけを読んで判断します（位置情報などは送りません）。";
+
+  drawBase(); sync();
+  try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{drawBase();render();}); }catch{}
+  new MutationObserver(()=>{drawBase();render();}).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+})();
+</script>
+
+</body>
+</html>

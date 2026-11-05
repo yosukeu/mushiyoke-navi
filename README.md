@@ -1,0 +1,51 @@
+# ムシヨケ・ナビ（トレーニング用プロトタイプ）
+
+虫に出会いにくいルートを、気温・時間帯・周辺環境から比べ、AI（Gemini 無料枠）が理由つきでおすすめするWebアプリです。
+
+## 構成
+
+```
+index.html          画面（地図・条件・ルート比較）
+api/recommend.js    AIおすすめAPI（Vercel上で動き、Geminiに問い合わせる）
+```
+
+APIキーは **Vercel の環境変数にだけ** 置きます。コード・GitHub・チャットには貼りません。
+
+## 公開手順（すべて無料、約15分）
+
+### 1. Gemini の APIキーを取る
+1. https://aistudio.google.com を開き、Googleアカウントでログイン
+2. 「Get API key」→「APIキーを作成」
+3. キーはコピーしたまま、どこにも貼らずに次へ（メモ帳に一時保存する程度に）
+4. **課金（Billing）は設定しない**。設定しなければ、上限に達しても止まるだけで料金は発生しません
+
+### 2. GitHub にファイルを置く
+1. https://github.com で新しいリポジトリを作成（例：`mushiyoke-navi`、Public で可）
+2. 「uploading an existing file」から、このフォルダの中身（`index.html`、`api` フォルダ、`README.md`）をドラッグ＆ドロップ
+   - `api` フォルダごとドロップし、`api/recommend.js` という形になっているか確認
+3. 「Commit changes」
+
+### 3. Vercel で公開する
+1. https://vercel.com に GitHub アカウントでサインアップ（Hobby＝無料プラン）
+2. 「Add New…」→「Project」→ 先ほどのリポジトリを「Import」
+3. 設定はそのままで、**Environment Variables** を開いて追加
+   - Name：`GEMINI_API_KEY`
+   - Value：AI Studio でコピーしたキー
+4. 「Deploy」→ 数十秒で `https://〇〇.vercel.app` が発行されます。このURLを配れば、みんなが触れます
+
+### うまく動かないとき
+- 「AIから回答を得られませんでした」：モデル名が変わった可能性があります。Vercel の環境変数に `GEMINI_MODEL` を追加し、AI Studio に表示されている無料のモデル名（例：`gemini-3.5-flash-lite`）を入れて再デプロイ
+- 環境変数を後から追加・変更したときは、Vercel の「Deployments」から「Redeploy」が必要です
+
+## 安全のための工夫
+- キーはサーバー側だけにあり、ブラウザや画面からは見えません
+- APIは数値データだけを受け取り、プロンプトはサーバー側で作るので、「何でも聞けるAI」として悪用されにくい
+- 同じ人からは1分に6回までの簡易制限つき
+- 位置情報や個人情報は送りません（地図は架空の街）
+- 無料枠では、送った内容がGoogleの改善に使われることがあります。個人情報は入れない設計にしています
+- **トレーニングが終わったら、AI Studio でキーを削除** しておくと安心です
+
+## 次の一歩（アイデア）
+- 実際の地図（OpenStreetMap）と現在の天気（Open-Meteo）につなぐ
+- 「ここで虫を見た」を報告できる機能
+- スマホのホーム画面に追加できるようにする
