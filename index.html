@@ -259,22 +259,12 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     const url=`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${pts.map(p=>p.lng.toFixed(6)+","+p.lat.toFixed(6)).join(";")}?overview=full&geometries=geojson&alternatives=${alt?"3":"false"}`;
     const j=await fetchJSON(url); if(j.code!=="Ok") throw new Error(j.code); return j.routes;
   };
-  const OVERPASS=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+  // 周辺施設は自前のサーバー（/api/places）経由で OpenStreetMap から取得する
   const overpass=async(bb)=>{
-    const b=`${bb.s},${bb.w},${bb.n},${bb.e}`;
-    const q=`[out:json][timeout:25];(
-      way["leisure"~"^(park|garden|playground|pitch|nature_reserve)$"](${b});
-      way["landuse"~"^(grass|forest|meadow|recreation_ground|cemetery|village_green)$"](${b});
-      way["natural"~"^(wood|scrub|water|wetland)$"](${b});
-      way["waterway"~"^(river|stream|canal|ditch|drain)$"](${b});
-      nwr["amenity"~"^(restaurant|fast_food|cafe|bar|pub|food_court|biergarten)$"](${b});
-      node["amenity"~"^(waste_disposal|recycling|waste_basket)$"](${b});
-      nwr["shop"="convenience"](${b});
-      node["amenity"="vending_machine"](${b});
-    );out geom;`;
-    let err;
-    for(const u of OVERPASS){ try{ return await fetchJSON(u,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}},30000); }catch(e){err=e;} }
-    throw err;
+    const r=await fetch("/api/places",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(bb)});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||"places");
+    return j;
   };
   const classify=t=>{
     if(!t) return null;
@@ -354,7 +344,8 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
       setStatus(3,"周辺の公園・川・飲食店などを調べています…");
       const all=routes.flatMap(r=>r.coords); const lats=all.map(c=>c[1]),lngs=all.map(c=>c[0]);
       const pad=.0007; const bb={s:Math.min(...lats)-pad,w:Math.min(...lngs)-pad,n:Math.max(...lats)+pad,e:Math.max(...lngs)+pad};
-      const [ov,wx]=await Promise.allSettled([overpass(bb),weather(s)]);
+      const bb5={s:+bb.s.toFixed(4),w:+bb.w.toFixed(4),n:+bb.n.toFixed(4),e:+bb.e.toFixed(4)};
+      const [ov,wx]=await Promise.allSettled([overpass(bb5),weather(s)]);
       feats = ov.status==="fulfilled"?toFeatures(ov.value):[];
       if(wx.status==="fulfilled"){ state.live=wx.value; if(state.preset==="live") Object.assign(state,wx.value); }
       routes.forEach((r,i)=>{ r.id="ABC"[i];
