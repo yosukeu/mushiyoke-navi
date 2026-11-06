@@ -5,190 +5,609 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ムシヨケ・ナビ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-/* Layout: 地図(左)＋条件と比較パネル(右)。スマホでは縦に積む。 */
-:root{
-  --bg:#eef2f1; --surface:#ffffff; --ink:#1d2b33; --muted:#5b6c72; --line:#d3dcdb;
-  --accent:#137a6f; --accent-soft:#d5ece8;
-  --good:#2f8a4e; --warn:#c98a12; --bad:#c2412d;
-  --park:#3e9a52; --water:#2f86b5; --food:#d0702a; --lights:#c98a12; --garbage:#6b7a80;
-  --display:"Dela Gothic One","Hiragino Kaku Gothic StdN",sans-serif;
-  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,monospace;
-  color-scheme:light;
+:root{--bg:#f5f7f6;
+  --surface:#fff;
+  --ink:#20332f;
+  --muted:#61736e;
+  --line:#dce6e1;
+  --accent:#0c7568;
+  --accent-soft:#e9f2ef;
+  --on-accent:#fff;
+  --good:#16806b;
+  --warn:#946900;
+  --bad:#b9433d;
+  --park:#3e9a52;
+  --water:#2f86b5;
+  --food:#d0702a;
+  --lights:#a97708;
+  --garbage:#6b7a80;
+  --body:"Noto Sans JP","Hiragino Sans",sans-serif;
+  --mono:Inter,var(--body);
+  color-scheme:light}
+
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101a18;
+  --surface:#1b2925;
+  --ink:#f0f5f2;
+  --muted:#b2c1bb;
+  --line:#355048;
+  --accent:#59c5b0;
+  --accent-soft:#283f38;
+  --on-accent:#102721;
+  --good:#69d3b0;
+  --warn:#e8bd5b;
+  --bad:#f08078;
+  color-scheme:dark}
 }
-@media (prefers-color-scheme: dark){:root{
-  --bg:#121a1d; --surface:#1a2428; --ink:#e3ebea; --muted:#9aaaae; --line:#2c3a3f;
-  --accent:#4cc2b2; --accent-soft:#183a37;
-  --good:#5cc27c; --warn:#e4ad3d; --bad:#ec6a55; color-scheme:dark}}
+
+:root[data-theme="dark"]{--bg:#101a18;
+  --surface:#1b2925;
+  --ink:#f0f5f2;
+  --muted:#b2c1bb;
+  --line:#355048;
+  --accent:#59c5b0;
+  --accent-soft:#283f38;
+  --on-accent:#102721;
+  --good:#69d3b0;
+  --warn:#e8bd5b;
+  --bad:#f08078;
+  color-scheme:dark}
+
 *{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{margin:0;
+  height:100%}
+body{background:var(--bg);
+  color:var(--ink);
+  font:14px/1.6 var(--body)}
 [hidden]{display:none!important}
-.wrap{max-width:1240px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin-bottom:14px}
-h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,4vw,36px);letter-spacing:.02em;margin:0}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.5;
+  cursor:default}
+button,input,select,summary{-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);
+  outline-offset:3px}
+h1,h2,p{margin:0}
+h1{font-size:18px;
+  letter-spacing:-.04em;
+  font-weight:700}
 h1 span{color:var(--accent)}
-.tagline{color:var(--muted);margin:0}
-.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:18px;align-items:start}
-@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
-.mapcol{display:flex;flex-direction:column;gap:10px;min-width:0}
-.status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.step{font-family:var(--display);font-size:13px;background:var(--accent);color:var(--surface);border-radius:999px;padding:2px 10px}
-.status p{margin:0;flex:1;min-width:180px;font-weight:500}
-.status .tools{display:flex;gap:6px;flex-wrap:wrap}
-.search{display:flex;flex-direction:column;gap:8px;padding:12px}
-.srow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:start}
-.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:700 12px var(--body);margin-top:4px}
-.dot.s{background:#1d2b33}.dot.g{background:#137a6f}
-.sfield{position:relative;min-width:0}
-.sfield input{width:100%;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
-.sfield input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
-.sugg{list-style:none;margin:4px 0 0;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);position:absolute;left:0;right:0;z-index:1000;box-shadow:0 6px 18px rgba(0,0,0,.12)}
-.sugg li button{all:unset;display:block;width:100%;box-sizing:border-box;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.4}
-.sugg li button:hover,.sugg li button:focus-visible{background:var(--accent-soft)}
-.sugg li small{display:block;color:var(--muted);font-size:12px}
-.sugg li.msg{padding:6px 8px;color:var(--muted);font-size:13px}
-.search .hint{margin:0;font-size:12.5px;color:var(--muted)}
-.srow .btn{white-space:nowrap}
-#map{height:min(62vh,620px);min-height:380px;border-radius:10px;border:1px solid var(--line);z-index:0}
-.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:0}
-.heat{display:inline-block;width:56px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--good),var(--warn),var(--bad));margin:0 6px;vertical-align:1px}
-.side{display:flex;flex-direction:column;gap:14px;min-width:0}
-h2{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
-.wx{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;margin-bottom:10px}
-.wx b{font-family:var(--mono);font-weight:500}
-.presets,.filter{display:flex;flex-wrap:wrap;gap:6px}
-.presets{margin-bottom:10px}
-.chipbtn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
-.chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-details summary{cursor:pointer;font-size:13px;color:var(--accent);margin:4px 0 8px}
-.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
-.field{display:flex;flex-direction:column;gap:3px;min-width:0}
-.field label{font-size:12.5px;color:var(--muted)}
-.field output{font-family:var(--mono);font-size:13px;color:var(--ink)}
-select,input[type=range]{width:100%;font:inherit}
-select{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
-input[type=range]{accent-color:var(--accent)}
-.check{display:flex;align-items:center;gap:6px;font-size:13.5px}
-.routes{display:flex;flex-direction:column;gap:8px}
-.empty{color:var(--muted);font-size:14px;margin:0}
-.route{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer}
-.route[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.badge{font-family:var(--display);font-size:18px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--ink)}
-.route[aria-pressed="true"] .badge{background:var(--accent);color:var(--surface)}
-.rname{font-weight:700}
-.rmeta{font-size:12.5px;color:var(--muted)}
-.score{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.score b{font-size:22px;display:block;line-height:1.1}
-.score small{font-size:11px;color:var(--muted);font-family:var(--body)}
-.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:2px;background:var(--accent-soft);color:var(--accent)}
-.lv-low{color:var(--good)} .lv-mid{color:var(--warn)} .lv-high{color:var(--bad)}
-.tags{grid-column:2 / 4;display:flex;flex-wrap:wrap;gap:4px}
-.tag{font-size:11.5px;border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--muted)}
-.ai{border-color:var(--accent)}
-.aihead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-.aihead h2{margin:0}
-.btn{font:inherit;font-weight:700;border:none;border-radius:8px;padding:8px 16px;background:var(--accent);color:var(--surface);cursor:pointer}
-.btn[disabled]{opacity:.5;cursor:default}
-.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);font-weight:500;padding:5px 12px;font-size:13.5px}
-.aiout{white-space:pre-wrap;min-height:3em;font-size:14.5px}
-.ainote{font-size:12px;color:var(--muted);margin:8px 0 0}
-footer{margin-top:18px;font-size:12px;color:var(--muted)}
-.pin{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
-.pin span{transform:rotate(45deg);color:#fff;font:700 12px var(--body)}
+h2{font-size:16px;
+  line-height:1.5}
+small,.small{font-size:12px;
+  color:var(--muted)}
+.wrap{height:100dvh;
+  min-height:480px;
+  position:relative;
+  overflow:hidden}
+header{background:var(--surface);border-radius:14px;padding:6px 8px;display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px}
+.tagline{font-size:11px;
+  color:var(--muted)}
+.brandmark{display:flex;
+  align-items:center;
+  gap:9px}
+.brand-symbol{width:32px;
+  height:32px;
+  border-radius:11px;
+  background:var(--accent);
+  color:var(--on-accent);
+  display:grid;
+  place-items:center;
+  font:700 19px var(--mono)}
+.header-tools{display:flex;
+  gap:6px}
+.iconbtn{width:44px;
+  height:44px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface);
+  color:var(--accent);
+  font-size:20px}
+.search-header{position:absolute;
+  z-index:600;
+  top:max(12px,env(safe-area-inset-top));
+  left:16px;
+  right:16px;
+  display:grid;
+  gap:10px}
+.panel{padding:16px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:16px}
+.search{padding:12px 14px;
+  box-shadow:0 8px 32px #12392c18;
+  border-radius:20px}
+.srow{display:grid;
+  grid-template-columns:16px minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px}
+.srow+.srow{border-top:1px solid var(--line)}
+.dot{width:12px;
+  height:12px;
+  border:3px solid var(--accent);
+  border-radius:50%;
+  font-size:0}
+.dot.g{border-radius:3px;
+  background:var(--accent)}
+.sfield{position:relative;
+  min-width:0}
+.sfield input{width:100%;
+  height:52px;
+  font-size:16px;
+  font-weight:500;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  padding:0 4px}
+.sfield input::placeholder{color:var(--muted);
+  opacity:1}
+.sugg{position:absolute;
+  left:-24px;
+  right:-80px;
+  top:46px;
+  z-index:1000;
+  list-style:none;
+  margin:0;
+  padding:6px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 8px 24px #0002;
+  max-height:220px;
+  overflow:auto}
+.sugg button{width:100%;
+  text-align:left;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  padding:12px;
+  border-radius:8px;
+  min-height:44px}
+.sugg button:hover{background:var(--accent-soft)}
+.sugg small{display:block}
+.sugg .msg{padding:10px;
+  font-size:12px;
+  color:var(--muted)}
+.btn{min-height:52px;
+  border:0;
+  border-radius:14px;
+  background:var(--accent);
+  color:var(--on-accent);
+  padding:10px 16px;
+  font-weight:700}
+.btn.ghost{min-height:44px;
+  background:var(--accent-soft);
+  color:var(--accent);
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:10px}
+.search-action{width:100%;
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px}
+.search-action span{font-size:18px}
+.hint{font-size:11px;
+  color:var(--muted);
+  margin-top:7px}
+.status{display:flex;
+  gap:8px;
+  align-items:start;
+  margin-top:10px;
+  font-size:12px;
+  color:var(--muted)}
+.status p{flex:1;
+  overflow-wrap:anywhere}
+.step{display:grid;
+  place-items:center;
+  flex:none;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:var(--accent-soft);
+  color:var(--accent);
+  font:600 11px var(--mono)}
+.status .btn{min-height:28px;
+  padding:2px 6px;
+  font-size:11px}
+#map{position:absolute;
+  inset:0;
+  z-index:0;
+  background:#e1ebe4}
+.leaflet-container{font-family:var(--body)}
+.leaflet-control-zoom{margin-top:330px!important}
+.leaflet-bottom{bottom:124px}
+.leaflet-control-attribution{font-size:9px!important}
+.side{position:absolute;
+  z-index:500;
+  bottom:0;
+  left:0;
+  right:0;
+  height:calc(148px + env(safe-area-inset-bottom));
+  max-height:calc(100dvh - 80px);
+  background:var(--surface);
+  border-radius:24px 24px 0 0;
+  box-shadow:0 -6px 32px #12392c20;
+  display:flex;
+  flex-direction:column;
+  transition:height .2s}
+.side[data-size="middle"]{height:44dvh;
+  min-height:300px}
+.side[data-size="expanded"]{height:82dvh;
+  z-index:700}
+.sheet-handle{flex:none;
+  width:100%;
+  min-height:32px;
+  background:none;
+  border:0;
+  border-radius:24px 24px 0 0;
+  display:grid;
+  place-items:center}
+.sheet-handle span{width:40px;
+  height:4px;
+  background:var(--line);
+  border-radius:5px}
+.sheet-scroll{overflow:auto;
+  overscroll-behavior:contain;
+  padding:0 16px calc(24px + env(safe-area-inset-bottom));
+  scrollbar-width:thin}
+.sheet-heading{display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:10px}
+.eyebrow{font:600 10px var(--mono);
+  letter-spacing:.16em;
+  color:var(--accent);
+  margin-bottom:4px}
+.textbtn{border:0;
+  background:transparent;
+  color:var(--accent);
+  min-height:44px;
+  padding:6px 0;
+  font-size:12px;
+  font-weight:700}
+.welcome p{color:var(--muted);
+  font-size:12px;
+  margin-top:5px}
+.side .panel{border:0;
+  border-radius:0;
+  padding:0;
+  margin-top:22px}
+.side .panel:first-of-type{margin-top:0}
+.section-note{font-size:11px;
+  color:var(--muted);
+  margin:8px 0 0}
+.routes{display:grid;
+  gap:9px}
+.empty{font-size:13px;
+  color:var(--muted);
+  padding:14px 0}
+.route{display:grid;
+  grid-template-columns:32px minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px 10px;
+  text-align:left;
+  width:100%;
+  color:var(--ink);
+  font:inherit;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:16px;
+  min-height:86px;
+  padding:13px}
+.route[aria-pressed="true"]{border:2px solid var(--accent);
+  padding:12px;
+  min-height:112px;
+  background:var(--accent-soft)}
+.badge{display:grid;
+  place-items:center;
+  width:28px;
+  height:28px;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:9px;
+  font:700 13px var(--mono)}
+.route[aria-pressed="true"] .badge{background:var(--accent);
+  color:var(--on-accent);
+  border-color:var(--accent)}
+.rname{font-size:12px;
+  font-weight:600}
+.rtime{display:block;
+  font:700 26px/1.3 var(--mono);
+  margin:4px 0}
+.rtime small{font:500 12px var(--body);
+  color:var(--ink);
+  margin-left:3px}
+.rmeta{font-size:11px;
+  color:var(--muted)}
+.score{text-align:right;
+  font:700 23px var(--mono)}
+.score b{font-weight:700}
+.score small{display:block;
+  font:500 11px var(--body);
+  color:inherit}
+.score .scale{display:inline;
+  font:400 10px var(--mono);
+  color:var(--muted)}
+.pill{display:inline-block;
+  font-size:10px;
+  background:var(--accent);
+  color:var(--on-accent);
+  padding:2px 6px;
+  border-radius:5px;
+  margin-left:4px}
+.tags{grid-column:2/4;
+  display:flex;
+  gap:4px;
+  flex-wrap:wrap}
+.tag{font-size:10px;
+  color:var(--muted);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:1px 5px}
+.route[aria-pressed="false"] .tags{display:none}
+.lv-low{color:var(--good)}
+.lv-mid{color:var(--warn)}
+.lv-high{color:var(--bad)}
+.ai{border-top:1px solid var(--line)!important;
+  padding-top:20px!important}
+.aihead{display:grid;
+  gap:12px;
+  margin-bottom:12px}
+.aihead>div{display:flex;
+  gap:8px}
+.aihead #ask{flex:1;
+  font-size:13px}
+.aiout{white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  font-size:14px;
+  line-height:1.9;
+  padding:14px;
+  background:var(--accent-soft);
+  border-radius:14px;
+  min-height:64px}
+.ainote{font-size:11px;
+  color:var(--muted);
+  margin-top:10px}
+.ai-label{font-size:11px;
+  color:var(--accent);
+  margin-bottom:6px}
+.settings{margin-top:20px;
+  border-top:1px solid var(--line);
+  padding-top:16px}
+.settings>summary{list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-height:48px;
+  cursor:pointer;
+  font-weight:600}
+.settings>summary::-webkit-details-marker{display:none}
+.settings>summary:after{content:'＋';
+  color:var(--accent)}
+.settings[open]>summary:after{content:'−'}
+.settings h2{font-size:13px;
+  margin:14px 0 8px}
+.wx{display:flex;
+  flex-wrap:wrap;
+  gap:6px 14px;
+  font-size:12px;
+  color:var(--muted);
+  margin:10px 0}
+.wx b{font-family:var(--mono);
+  color:var(--ink)}
+.presets,.filter{display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:10px 0}
+.chipbtn{min-height:44px;
+  border:1px solid var(--line);
+  border-radius:99px;
+  padding:8px 12px;
+  background:var(--surface);
+  color:var(--ink);
+  font-size:12px}
+.chipbtn[aria-pressed="true"]{background:var(--accent-soft);
+  border-color:var(--accent);
+  color:var(--accent);
+  font-weight:700}
+#manual summary{min-height:44px;
+  color:var(--accent);
+  font-size:12px;
+  cursor:pointer}
+.form{display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px}
+.field label,.check{font-size:12px;
+  color:var(--muted)}
+.field output{color:var(--ink);
+  font-family:var(--mono)}
+select,input[type=range]{width:100%;
+  accent-color:var(--accent)}
+select{min-height:44px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface);
+  color:var(--ink);
+  padding:8px}
+input[type=range]{min-height:32px}
+.check{display:flex;
+  align-items:center;
+  min-height:44px}
+.legend{display:flex;
+  flex-wrap:wrap;
+  gap:6px 12px;
+  color:var(--muted);
+  font-size:10px;
+  margin-top:16px}
+.legend i{display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  margin-right:4px}
+.heat{display:inline-block;
+  width:45px;
+  height:6px;
+  background:linear-gradient(90deg,var(--good),var(--warn),var(--bad));
+  margin:0 5px;
+  border-radius:4px}
+footer{margin-top:20px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+  font-size:10px;
+  color:var(--muted)}
+.pin{width:28px;
+  height:28px;
+  border-radius:50% 50% 50% 0;
+  transform:rotate(-45deg);
+  display:grid;
+  place-items:center;
+  border:2px solid #fff;
+  box-shadow:0 2px 5px #0003}
+.pin span{transform:rotate(45deg);
+  color:#fff;
+  font:700 12px var(--body)}
+.map-return{width:100%;
+  margin-top:12px}
+body[data-searching="true"] .search-action:before{content:'';
+  width:15px;
+  height:15px;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  border-radius:50%;
+  animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}
+}
+
+@media(min-width:768px){.search-header{width:400px;
+  left:auto;
+  right:24px;
+  top:20px}
+.side{width:400px;
+  left:auto;
+  right:24px;
+  top:var(--search-bottom,380px);
+  bottom:20px;
+  height:auto!important;
+  max-height:none;
+  border:1px solid var(--line);
+  border-radius:20px;
+  z-index:500!important}
+.sheet-handle{min-height:20px;
+  pointer-events:none}
+.sheet-handle span{display:none}
+.leaflet-control-zoom{margin-top:20px!important}
+.leaflet-bottom{bottom:0}
+.leaflet-right{right:448px}
+.search-header header{background:var(--surface);
+  padding:9px 12px;
+  border-radius:16px;
+  border:1px solid var(--line)}
+.sheet-scroll{padding-bottom:24px}
+}
+
+@media(max-height:680px) and (max-width:767px){.tagline,.hint{display:none}
+.search-header{gap:6px;
+  top:6px}
+.search{padding:8px 12px}
+.sfield input{height:44px}
+.side[data-size="middle"]{min-height:220px}
+.leaflet-control-zoom{margin-top:275px!important}
+}
+
+@media(prefers-reduced-motion:reduce){*,*:before{transition:none!important;
+  animation:none!important}
+}
+
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>ムシヨケ<span>・</span>ナビ</h1>
-    <p class="tagline">地図で出発地と目的地を選ぶと、虫に出会いにくい道をおすすめします</p>
-  </header>
-
-  <div class="grid">
-    <section class="mapcol" aria-label="地図">
-      <div class="panel search" role="search" aria-label="出発地と目的地の検索">
-        <div class="srow">
-          <span class="dot s" aria-hidden="true">出</span>
-          <div class="sfield"><input id="qStart" type="text" placeholder="出発地（例：東京駅）" autocomplete="off" aria-label="出発地" enterkeyhint="search"><ul class="sugg" id="sgStart" hidden></ul></div>
-          <button class="btn ghost" id="locBtn" type="button">現在地</button>
-        </div>
-        <div class="srow">
-          <span class="dot g" aria-hidden="true">着</span>
-          <div class="sfield"><input id="qGoal" type="text" placeholder="目的地（駅名・施設名・住所）" autocomplete="off" aria-label="目的地" enterkeyhint="search"><ul class="sugg" id="sgGoal" hidden></ul></div>
-          <button class="btn" id="goBtn" type="button">ルート検索</button>
-        </div>
-        <p class="hint">入力して「ルート検索」。候補から選びたいときは入力欄でEnter。地図をタップしてピンで選ぶこともできます。</p>
-      </div>
-      <div class="status">
-        <span class="step" id="stepNo">1</span>
-        <p id="statusText">出発地と目的地を入力するか、地図をタップして選んでください。</p>
-        <div class="tools">
-          <button class="btn ghost" id="resetBtn" type="button" hidden>選び直す</button>
-        </div>
-      </div>
-      <div id="map"></div>
-      <div class="legend">
-        <span><i style="background:var(--park)"></i>公園・緑地</span>
-        <span><i style="background:var(--water)"></i>川・水辺</span>
-        <span><i style="background:var(--food)"></i>飲食店</span>
-        <span><i style="background:var(--lights)"></i>コンビニ・自販機（夜に明るい）</span>
-        <span><i style="background:var(--garbage)"></i>ゴミ置き場</span>
-        <span>虫リスク 低<span class="heat"></span>高</span>
-      </div>
+<main class="wrap">
+  <div id="map" aria-label="徒歩ルートの地図"></div>
+  <div class="search-header">
+    <header>
+      <div class="brandmark"><span class="brand-symbol" aria-hidden="true">m</span><div><h1>ムシヨケ<span>・</span>ナビ</h1><p class="tagline">歩く道に、少しの安心を。</p></div></div>
+      <div class="header-tools"><button class="iconbtn" id="themeBtn" type="button" aria-label="ダーク表示に切り替える" title="表示テーマを切り替える">◐</button><button class="iconbtn" id="settingsBtn" type="button" aria-label="条件を変更" title="条件を変更">☷</button></div>
+    </header>
+    <section class="panel search" role="search" aria-label="出発地と目的地の検索">
+      <div class="srow"><span class="dot s" aria-hidden="true"></span><div class="sfield"><input id="qStart" type="text" placeholder="出発地（駅・施設・住所）" autocomplete="off" aria-label="出発地" enterkeyhint="search"><ul class="sugg" id="sgStart" hidden></ul></div><button class="btn ghost" id="locBtn" type="button">現在地</button></div>
+      <div class="srow"><span class="dot g" aria-hidden="true"></span><div class="sfield"><input id="qGoal" type="text" placeholder="どこまで歩きますか？" autocomplete="off" aria-label="目的地" enterkeyhint="search"><ul class="sugg" id="sgGoal" hidden></ul></div><button class="btn ghost" id="mapPickBtn" type="button">地図で選ぶ</button></div>
+      <button class="btn search-action" id="goBtn" type="button">ルートを探す <span aria-hidden="true">→</span></button>
+      <p class="hint">地図のタップでも選べます。候補は入力欄でEnter。</p>
+      <div class="status" role="status" aria-live="polite"><span class="step" id="stepNo">1</span><p id="statusText">出発地と目的地を選んで、歩く道を比べましょう。</p><button class="btn ghost" id="resetBtn" type="button" hidden>選び直す</button></div>
     </section>
-
-    <div class="side">
-      <section class="panel" aria-labelledby="h-cond">
-        <h2 id="h-cond">条件</h2>
-        <div class="wx" id="wx"><span>地点を選ぶと、その場所の今の天気を取得します。</span></div>
-        <div class="presets" id="presets"></div>
-        <details id="manual">
-          <summary>条件を手動で変える</summary>
-          <div class="form">
-            <div class="field"><label for="month">月</label><select id="month"></select></div>
-            <div class="field"><label for="time">時間帯</label>
-              <select id="time"><option value="morning">朝</option><option value="day">昼</option><option value="dusk">夕方</option><option value="night">夜</option></select></div>
-            <div class="field"><label for="temp">気温 <output id="tempOut"></output></label><input type="range" id="temp" min="0" max="38" step="1"></div>
-            <div class="field"><label for="hum">湿度 <output id="humOut"></output></label><input type="range" id="hum" min="20" max="100" step="5"></div>
-            <label class="check"><input type="checkbox" id="rain"> 雨のあと</label>
-          </div>
-        </details>
-        <h2 style="margin-top:12px">特に避けたい虫</h2>
-        <div class="filter" id="filter"></div>
-      </section>
-
-      <section class="panel" aria-labelledby="h-routes">
-        <h2 id="h-routes">ルート比較</h2>
-        <div class="routes" id="routes"><p class="empty">出発地と目的地を選ぶと、徒歩ルートの候補をここに並べます。</p></div>
-      </section>
-
-      <section class="panel ai" aria-labelledby="h-ai">
-        <div class="aihead">
-          <h2 id="h-ai">AIのおすすめ</h2>
-          <div style="display:flex;gap:6px">
-            <button class="btn ghost" id="stop" type="button" hidden>止める</button>
-            <button class="btn" id="ask" type="button" disabled>AI（Gemini）に理由つきで聞く</button>
-          </div>
-        </div>
-        <div class="aiout" id="aiout"></div>
-        <p class="ainote" id="ainote">AIには、条件と各ルートの集計値だけを送ります（地点の住所や座標は送りません）。</p>
-      </section>
-    </div>
   </div>
-  <footer>プロトタイプ v0.2 ｜ 地図・ルート・周辺施設 © OpenStreetMap contributors（ルート：FOSSGIS OSRM、施設：Nominatim）、天気：Open-Meteo。虫リスクは環境と気象条件からの推定値で、実際の出現を保証するものではありません。</footer>
-</div>
+  <section class="side" id="sheet" data-size="closed" aria-label="ルート情報">
+    <button class="sheet-handle" id="sheetToggle" type="button" aria-label="ルート情報を広げる" aria-expanded="false" aria-controls="sheetScroll"><span></span></button>
+    <div class="sheet-scroll" id="sheetScroll">
+      <div class="welcome" id="welcome"><p class="eyebrow">A LITTLE MORE COMFORT</p><h2>安心できそうな道を、見つけよう。</h2><p>いつもの道も、はじめての道も。<br>周辺の環境と天気から、徒歩ルートを比較します。</p></div>
+      <section class="panel" id="resultsPanel" aria-labelledby="h-routes" hidden>
+        <div class="sheet-heading"><div><p class="eyebrow">YOUR WALK</p><h2 id="h-routes">ルートを比較</h2></div><button class="textbtn" id="resultSettings" type="button">条件を変更</button></div>
+        <div class="routes" id="routes"></div>
+        <p class="section-note">虫リスクは推定スコア（0〜100）です。遭遇確率や、虫が出ないことを保証するものではありません。</p>
+      </section>
+      <section class="panel ai" id="aiPanel" aria-labelledby="h-ai" hidden>
+        <div class="aihead"><h2 id="h-ai">この道を選ぶ、もうひとつのヒント。</h2><div><button class="btn ghost" id="stop" type="button" hidden>止める</button><button class="btn" id="ask" type="button" disabled>AIにおすすめの理由を聞く</button></div></div>
+        <p class="ai-label" id="aiLabel">ルールによる比較</p><div class="aiout" id="aiout" role="status" aria-live="polite"></div>
+        <p class="ainote" id="ainote">AIには条件とルートの集計値だけを送ります。住所や座標は送りません。</p>
+        <button class="btn ghost map-return" id="mapReturn" type="button">地図でルートを確認する ↑</button>
+      </section>
+      <details class="settings" id="settings"><summary>特に避けたい虫・条件を設定</summary>
+        <h2>特に避けたい虫</h2><div class="filter" id="filter"></div>
+        <h2 id="h-cond">天気・時間帯</h2><div class="wx" id="wx"></div><div class="presets" id="presets"></div>
+        <details id="manual"><summary>条件を手動で変える</summary><div class="form">
+          <div class="field"><label for="month">月</label><select id="month"></select></div>
+          <div class="field"><label for="time">時間帯</label><select id="time"><option value="morning">朝</option><option value="day">昼</option><option value="dusk">夕方</option><option value="night">夜</option></select></div>
+          <div class="field"><label for="temp">気温 <output id="tempOut"></output></label><input type="range" id="temp" min="0" max="38" step="1"></div>
+          <div class="field"><label for="hum">湿度 <output id="humOut"></output></label><input type="range" id="hum" min="20" max="100" step="5"></div>
+          <label class="check"><input type="checkbox" id="rain"> 雨のあと</label>
+        </div></details>
+        <p class="section-note">条件を変えると、同じ経路のリスクを再評価します。</p>
+      </details>
+      <div class="legend"><span><i style="background:var(--park)"></i>公園・緑地</span><span><i style="background:var(--water)"></i>川・水辺</span><span><i style="background:var(--food)"></i>飲食店</span><span><i style="background:var(--lights)"></i>コンビニ・自販機</span><span><i style="background:var(--garbage)"></i>ゴミ置き場</span><span>区間リスク 低<span class="heat"></span>高</span></div>
+      <footer>プロトタイプ v0.2 ｜ 地図・ルート・周辺施設 © OpenStreetMap contributors（ルート：FOSSGIS OSRM、施設：Nominatim）、天気：Open-Meteo。現地の状況にも気を配ってご利用ください。</footer>
+    </div>
+  </section>
+</main>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
+
+  // UI integration: keep route/risk/API contracts independent of presentation.
+  let mapReady = false;
+  const setSheet = size => {
+    $("sheet").dataset.size = size;
+    $("sheetToggle").setAttribute("aria-expanded", String(size !== "closed"));
+    $("sheetToggle").setAttribute("aria-label", size === "expanded" ? "ルート情報を縮める" : "ルート情報を広げる");
+    if(mapReady) setTimeout(() => { map.invalidateSize({pan:false}); if(size !== "expanded" && routes.length) fitSelected(); }, 220);
+  };
+  $("sheetToggle").onclick = () => setSheet($("sheet").dataset.size === "expanded" ? "middle" : "expanded");
+  const openSettings = () => { $("settings").open = true; setSheet("expanded"); $("settings").scrollIntoView({block:"start"}); };
+  $("settingsBtn").onclick = $("resultSettings").onclick = openSettings;
+  $("settings").addEventListener("toggle", () => { if($("settings").open) setSheet("expanded"); });
+  $("mapReturn").onclick = () => { setSheet("middle"); $("sheetScroll").scrollTop = 0; };
+  $("mapPickBtn").onclick = () => { setSheet("closed"); setStatus(2, "地図をタップして" + (!startM ? "出発地" : "目的地") + "を選んでください。選択済みのピンはドラッグで動かせます。"); };
+  $("themeBtn").onclick = () => {
+    const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = dark ? "light" : "dark";
+    $("themeBtn").setAttribute("aria-label", dark ? "ダーク表示に切り替える" : "ライト表示に切り替える");
+    if(mapReady) { render(); drawFeatures(); }
+  };
+
+  const syncHeaderSize = () => {
+    document.documentElement.style.setProperty("--search-bottom", ($("goBtn").closest(".search-header").getBoundingClientRect().bottom + 12) + "px");
+  };
+  new ResizeObserver(syncHeaderSize).observe(document.querySelector(".search-header"));
+  window.addEventListener("resize", syncHeaderSize);
 
   // ---------- 虫リスクのモデル ----------
   const BUGS = [
@@ -245,12 +664,20 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
 
   // ---------- 地図 ----------
   const map=L.map("map",{zoomControl:true}).setView([35.6812,139.7671],15);
+  mapReady = true;
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
   const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const pinIcon=(label,color)=>L.divIcon({className:"",html:`<div class="pin" style="background:${color}"><span>${label}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});
   let startM=null, goalM=null;
   const routeLayer=L.layerGroup().addTo(map), featLayer=L.layerGroup().addTo(map);
 
+  const fitSelected = () => {
+    const r = routes.find(r => r.id === state.selected);
+    if(!r) return;
+    const desktop = matchMedia("(min-width:768px)").matches;
+    const bottom = desktop ? 35 : $("sheet").getBoundingClientRect().height + 24;
+    map.fitBounds(L.latLngBounds(r.coords.map(c=>[c[1],c[0]])), {paddingTopLeft:[35, desktop ? 35 : document.querySelector(".search-header").getBoundingClientRect().bottom + 16], paddingBottomRight:[desktop ? 460 : 35, bottom], maxZoom:17});
+  };
   const setStatus=(n,t)=>{$("stepNo").textContent=n;$("statusText").textContent=t;};
   const PICKED="地図で選んだ地点";
   const fieldsLast={start:null,goal:null};
@@ -269,7 +696,7 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     $("resetBtn").hidden=false;
   };
   const afterPlace=()=>{
-    if(startM&&goalM) plan();
+    if(startM&&goalM) return plan();
     else if(startM){ map.panTo(startM.getLatLng()); setStatus(2,"次に、目的地を入力するか、地図をタップしてください。"); }
     else if(goalM){ map.panTo(goalM.getLatLng()); setStatus(2,"出発地を入力するか、地図をタップしてください。"); }
   };
@@ -343,7 +770,7 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     try{
       for(const f of need){ setStatus(2,`「${f.input.value.trim()}」を探しています…`); const ok=await searchField(f,{autoPick:true});
         if(!ok){ setStatus(2,`「${f.input.value.trim()}」が見つかりませんでした。別の言い方で試すか、地図をタップしてください。`); return; } }
-      afterPlace();
+      await afterPlace();
     } finally { $("goBtn").disabled=false; }
   };
 
@@ -441,14 +868,14 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
 
   async function plan(){
     if(busy||!startM||!goalM) return;
-    busy=true; $("ask").disabled=true; $("aiout").textContent="";
+    busy=true; document.body.dataset.searching="true"; $("goBtn").disabled=true; $("ask").disabled=true; $("aiout").textContent="";
     const s=startM.getLatLng(), g=goalM.getLatLng();
     origin={lat:s.lat,lng:s.lng};
     const dist=s.distanceTo(g);
-    if(dist>6000){busy=false;setStatus(2,"徒歩向けのため、6km以内の2点を選んでください（ピンはドラッグで動かせます）。");return;}
+    if(dist>6000){busy=false; document.body.dataset.searching="false"; $("goBtn").disabled=false; $("ask").disabled=!last.length;setStatus(2,"徒歩向けのため、6km以内の2点を選んでください（ピンはドラッグで動かせます）。");return;}
     try{
       setStatus(3,"徒歩ルートの候補を探しています…");
-      routeLayer.clearLayers(); featLayer.clearLayers();
+      // Keep the previous result visible until a replacement succeeds.
       // 候補：そのままの経路＋左右に回り込む経路
       const [gx,gy]=toXY(g.lat,g.lng), d=Math.max(1,Math.hypot(gx,gy)), off=Math.max(150,dist*.3);
       const via=sign=>{const mx=gx/2-sign*gy/d*off, my=gy/2+sign*gx/d*off;
@@ -479,11 +906,11 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
       setStatus(4, ov.status==="fulfilled" ? "結果が出ました。ルートをタップすると地図で確認できます。ピンはドラッグで動かせます。"
         : "周辺施設のデータを取得できなかったため、天気だけで判定しています。少し待ってピンを動かすとやり直せます。");
       $("ask").disabled=false;
-      render();
+      render(); setSheet("middle"); $("sheetScroll").scrollTop=0;
     }catch(e){
       console.error(e);
       setStatus(2,"ルートを見つけられませんでした。道路の近くを選ぶか、少し待ってからピンを動かしてみてください。");
-    }finally{busy=false;}
+    }finally{busy=false; document.body.dataset.searching="false"; $("goBtn").disabled=false; $("ask").disabled=!last.length;}
   }
   const nameRoutes=()=>{
     const used=new Set();
@@ -516,11 +943,11 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     const local=r.samples.map(sm=>{let v=0;(sm.types||[]).forEach(t=>{const lt=t==="lights"?LIGHTS_TIME[state.time]:1;for(const b in W[t]){const x=W[t][b]*lt*act[b];byBug[b]+=x*sm.len/200;v+=x;}});return v;});
     const raw=Object.values(byBug).reduce((a,b)=>a+b,0);
     return {r,score:Math.round(100*(1-Math.exp(-raw/K))),byBug,local};});};
-  const level=s=>s<34?{c:"lv-low",t:"低め"}:s<60?{c:"lv-mid",t:"注意"}:{c:"lv-high",t:"高め"};
+  const level=s=>s<34?{c:"lv-low",t:"リスク低め"}:s<60?{c:"lv-mid",t:"少し注意"}:{c:"lv-high",t:"注意が必要"};
   const mix=(c1,c2,t)=>{const h=c=>c.replace("#","").match(/../g).map(x=>parseInt(x,16));const a=h(c1),b=h(c2);return "#"+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,"0")).join("");};
   const heat=(v,max)=>{const t=Math.min(1,v/max);return t<.5?mix(css("--good"),css("--warn"),t*2):mix(css("--warn"),css("--bad"),(t-.5)*2);};
 
-  const renderEmpty=()=>{$("routes").innerHTML='<p class="empty">出発地と目的地を選ぶと、徒歩ルートの候補をここに並べます。</p>';$("ask").disabled=true;$("aiout").textContent="";};
+  const renderEmpty=()=>{$("welcome").hidden=false;$("resultsPanel").hidden=true;$("aiPanel").hidden=true;setSheet("closed");$("routes").innerHTML='<p class="empty">出発地と目的地を選ぶと、徒歩ルートの候補をここに並べます。</p>';$("ask").disabled=true;$("aiout").textContent="";};
   const renderWx=()=>{
     const l=state.live;
     $("wx").innerHTML = l
@@ -534,31 +961,35 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     $("tempOut").textContent=state.temp+"℃";$("humOut").textContent=state.hum+"%";
     renderWx();
     if(!routes.length) return;
+    $("welcome").hidden=true;$("resultsPanel").hidden=false;$("aiPanel").hidden=false;
+    $("h-routes").textContent=routes.length+"つのルートを比較";
     const res=evaluate(); last=res;
     const best=[...res].sort((a,b)=>a.score-b.score||a.r.len-b.r.len)[0];
     if(!state.selected) state.selected=best.r.id;
     const box=$("routes"); box.innerHTML="";
     res.forEach(x=>{const lv=level(x.score);const b=document.createElement("button");b.type="button";b.className="route";b.setAttribute("aria-pressed",x.r.id===state.selected);
       const tags=Object.entries(x.r.featM).sort((a,b)=>b[1]-a[1]).map(([t,m])=>`<span class="tag">${FEAT_LABEL[t]} ${Math.round(m/10)*10}m</span>`).join("")||'<span class="tag">気になる環境なし</span>';
-      b.innerHTML=`<span class="badge">${x.r.id}</span><span><span class="rname">${x.r.name}</span>${x===best&&res.length>1?'<span class="pill">おすすめ</span>':''}<br><span class="rmeta">徒歩${x.r.minutes}分・${(x.r.meters/1000).toFixed(1)}km・${x.r.desc}</span></span><span class="score ${lv.c}"><b>${x.score}</b><small>${lv.t}</small></span><span class="tags">${tags}</span>`;
-      b.onclick=()=>{state.selected=x.r.id;render();};box.appendChild(b);});
+      b.innerHTML=`<span class="badge">${x.r.id}</span><span><span class="rname">${x.r.name}</span>${x===best&&res.length>1?'<span class="pill">おすすめ</span>':''}<span class="rtime">${x.r.minutes}<small>分</small></span><span class="rmeta">${(x.r.meters/1000).toFixed(1)} km · 徒歩</span></span><span class="score ${lv.c}"><b>${x.score}</b><small class="scale"> /100</small><small>${lv.t}</small></span><span class="tags">${tags}</span>`;
+      b.onclick=()=>{state.selected=x.r.id;render();fitSelected();};box.appendChild(b);});
     if(routes.length===1){const p=document.createElement("p");p.className="empty";p.textContent="この2点の間では、別の道の候補が見つかりませんでした。";box.appendChild(p);}
     routeLayer.clearLayers();
     const max=Math.max(.5,...res.flatMap(x=>x.local));
     res.forEach(x=>{ if(x.r.id===state.selected) return;
-      const sel=()=>{state.selected=x.r.id;render();};
-      L.polyline(x.r.coords.map(c=>[c[1],c[0]]),{color:"#5b6c72",weight:5,opacity:.6,dashArray:"4 8"}).on("click",sel).addTo(routeLayer);
+      const sel=()=>{state.selected=x.r.id;render();fitSelected();};
+      L.polyline(x.r.coords.map(c=>[c[1],c[0]]),{color:"#fff",weight:8,opacity:.85,interactive:false}).addTo(routeLayer);
+      L.polyline(x.r.coords.map(c=>[c[1],c[0]]),{color:"#5b6c72",weight:4,opacity:.5}).on("click",sel).addTo(routeLayer);
+      L.polyline(x.r.coords.map(c=>[c[1],c[0]]),{weight:20,opacity:0}).on("click",sel).addTo(routeLayer);
       const m=x.r.coords[Math.floor(x.r.coords.length/2)];
       L.marker([m[1],m[0]],{icon:L.divIcon({className:"",html:`<div class="pin" style="background:#5b6c72;width:22px;height:22px"><span style="font-size:11px">${x.r.id}</span></div>`,iconSize:[22,22],iconAnchor:[11,22]})}).on("click",sel).addTo(routeLayer);
     });
     const cur=res.find(x=>x.r.id===state.selected);
-    L.polyline(cur.r.coords.map(c=>[c[1],c[0]]),{color:"#1d2b33",weight:11,opacity:.75}).addTo(routeLayer);
-    cur.r.samples.forEach((sm,i)=>L.polyline([sm.a,sm.b],{color:heat(cur.local[i],max),weight:6,opacity:1,lineCap:"round",interactive:false}).addTo(routeLayer));
-    if(!aiBusy) $("aiout").textContent=ruleText(res);
+    L.polyline(cur.r.coords.map(c=>[c[1],c[0]]),{color:"#fff",weight:11,opacity:1,interactive:false}).addTo(routeLayer);
+    cur.r.samples.forEach((sm,i)=>L.polyline([sm.a,sm.b],{color:heat(cur.local[i],max),weight:7,opacity:1,lineCap:"round",interactive:false}).addTo(routeLayer));
+    if(!aiBusy) { $("ainote").textContent="AIには条件とルートの集計値だけを送ります。住所や座標は送りません。"; $("aiout").textContent=ruleText(res); $("aiLabel").textContent="ルールによる比較"; $("ask").textContent="AIにおすすめの理由を聞く"; }
   };
   const ruleText=(res)=>{
     const sorted=[...res].sort((a,b)=>a.score-b.score), best=sorted[0], worst=sorted[sorted.length-1];
-    if(worst.score<15) return `いまの条件では、どのルートも虫は少なめです。いちばん近い「${res[0].r.name}」で問題ありません。夏の条件で試すと、違いがよくわかります。`;
+    if(worst.score<15) return `いまの条件では、どのルートも虫は少なめです。いちばん近い「${res[0].r.name}」が比較的リスクの低い候補です。夏の条件で試すと、違いがよくわかります。`;
     const topBug=b=>BUGS.reduce((m,x)=>b.byBug[x.id]>b.byBug[m.id]?x:m,BUGS[0]).name;
     if(best===worst) return `虫リスクは${best.score}です。${topBug(best)}に出会いやすい環境を通るので、気をつけて歩いてください。`;
     return `ルール判定では「${best.r.name}」がおすすめです（リスク ${best.score}）。「${worst.r.name}」は${topBug(worst)}に出会いやすい環境を通ります。AIに聞くと、条件を踏まえた理由を説明します。`;
@@ -584,17 +1015,18 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
   });
   $("ask").onclick=async()=>{
     if(!last.length) return;
+    setSheet("expanded"); $("aiPanel").scrollIntoView({block:"start"}); $("aiLabel").textContent="AIが比較しています";
     aiBusy=true; ctl=new AbortController(); $("ask").disabled=true; $("stop").hidden=false;
     $("aiout").textContent="考えています…";
     try{
       const r=await fetch("/api/recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(buildPayload(last)),signal:ctl.signal});
       const j=await r.json().catch(()=>({}));
       if(!r.ok||!j.text) throw new Error(j.error||"AIに接続できませんでした。");
-      $("aiout").textContent=j.text;
+      $("aiout").textContent=j.text; $("aiLabel").textContent="Geminiのおすすめ";
       $("ainote").textContent="Gemini（無料枠）の回答です。条件を変えたら、もう一度聞いてみてください。";
     }catch(e){
       aiBusy=false; render();
-      if(e.name!=="AbortError") $("ainote").textContent=(e.message||"AIに接続できませんでした。")+" いまはルール判定を表示しています。";
+      if(e.name!=="AbortError") { $("ask").textContent="AIにもう一度聞く"; $("aiLabel").textContent="AIに接続できませんでした · ルールによる比較"; $("ainote").textContent=(e.message||"AIに接続できませんでした。")+" いまはルール判定を表示しています。"; }
     }finally{aiBusy=false;$("ask").disabled=!last.length;$("stop").hidden=true;}
   };
   $("stop").onclick=()=>ctl?.abort();
