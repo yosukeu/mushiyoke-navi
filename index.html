@@ -41,6 +41,20 @@ h1 span{color:var(--accent)}
 .step{font-family:var(--display);font-size:13px;background:var(--accent);color:var(--surface);border-radius:999px;padding:2px 10px}
 .status p{margin:0;flex:1;min-width:180px;font-weight:500}
 .status .tools{display:flex;gap:6px;flex-wrap:wrap}
+.search{display:flex;flex-direction:column;gap:8px;padding:12px}
+.srow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:start}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:700 12px var(--body);margin-top:4px}
+.dot.s{background:#1d2b33}.dot.g{background:#137a6f}
+.sfield{position:relative;min-width:0}
+.sfield input{width:100%;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.sfield input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.sugg{list-style:none;margin:4px 0 0;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);position:absolute;left:0;right:0;z-index:1000;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.sugg li button{all:unset;display:block;width:100%;box-sizing:border-box;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.4}
+.sugg li button:hover,.sugg li button:focus-visible{background:var(--accent-soft)}
+.sugg li small{display:block;color:var(--muted);font-size:12px}
+.sugg li.msg{padding:6px 8px;color:var(--muted);font-size:13px}
+.search .hint{margin:0;font-size:12.5px;color:var(--muted)}
+.srow .btn{white-space:nowrap}
 #map{height:min(62vh,620px);min-height:380px;border-radius:10px;border:1px solid var(--line);z-index:0}
 .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:0}
@@ -100,11 +114,23 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
 
   <div class="grid">
     <section class="mapcol" aria-label="地図">
+      <div class="panel search" role="search" aria-label="出発地と目的地の検索">
+        <div class="srow">
+          <span class="dot s" aria-hidden="true">出</span>
+          <div class="sfield"><input id="qStart" type="text" placeholder="出発地（例：東京駅）" autocomplete="off" aria-label="出発地" enterkeyhint="search"><ul class="sugg" id="sgStart" hidden></ul></div>
+          <button class="btn ghost" id="locBtn" type="button">現在地</button>
+        </div>
+        <div class="srow">
+          <span class="dot g" aria-hidden="true">着</span>
+          <div class="sfield"><input id="qGoal" type="text" placeholder="目的地（駅名・施設名・住所）" autocomplete="off" aria-label="目的地" enterkeyhint="search"><ul class="sugg" id="sgGoal" hidden></ul></div>
+          <button class="btn" id="goBtn" type="button">ルート検索</button>
+        </div>
+        <p class="hint">入力してEnterで候補を表示します。地図をタップしてピンで選ぶこともできます。</p>
+      </div>
       <div class="status">
         <span class="step" id="stepNo">1</span>
-        <p id="statusText">地図をタップして、出発地を選んでください。</p>
+        <p id="statusText">出発地と目的地を入力するか、地図をタップして選んでください。</p>
         <div class="tools">
-          <button class="btn ghost" id="locBtn" type="button">現在地を出発地に</button>
           <button class="btn ghost" id="resetBtn" type="button" hidden>選び直す</button>
         </div>
       </div>
@@ -226,31 +252,99 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
   const routeLayer=L.layerGroup().addTo(map), featLayer=L.layerGroup().addTo(map);
 
   const setStatus=(n,t)=>{$("stepNo").textContent=n;$("statusText").textContent=t;};
+  const PICKED="地図で選んだ地点";
+  const fieldsLast={start:null,goal:null};
+  const placeStart=(ll,text)=>{
+    if(startM) startM.setLatLng(ll);
+    else { startM=L.marker(ll,{icon:pinIcon("出","#1d2b33"),draggable:true}).addTo(map);
+      startM.on("dragend",()=>{$("qStart").value=PICKED; goalM&&plan();}); }
+    if(text!=null){ $("qStart").value=text; fieldsLast.start=text; }
+    $("resetBtn").hidden=false;
+  };
+  const placeGoal=(ll,text)=>{
+    if(goalM) goalM.setLatLng(ll);
+    else { goalM=L.marker(ll,{icon:pinIcon("着","#137a6f"),draggable:true}).addTo(map);
+      goalM.on("dragend",()=>{$("qGoal").value=PICKED; startM&&plan();}); }
+    if(text!=null){ $("qGoal").value=text; fieldsLast.goal=text; }
+    $("resetBtn").hidden=false;
+  };
+  const afterPlace=()=>{
+    if(startM&&goalM) plan();
+    else if(startM){ map.panTo(startM.getLatLng()); setStatus(2,"次に、目的地を入力するか、地図をタップしてください。"); }
+    else if(goalM){ map.panTo(goalM.getLatLng()); setStatus(2,"出発地を入力するか、地図をタップしてください。"); }
+  };
   const setPoint=(latlng)=>{
     if(busy) return;
-    if(!startM){
-      startM=L.marker(latlng,{icon:pinIcon("出","#1d2b33"),draggable:true}).addTo(map);
-      startM.on("dragend",()=>goalM&&plan());
-      setStatus(2,"次に、目的地をタップしてください。");
-      $("resetBtn").hidden=false;
-    }else if(!goalM){
-      goalM=L.marker(latlng,{icon:pinIcon("着","#137a6f"),draggable:true}).addTo(map);
-      goalM.on("dragend",plan);
-      plan();
-    }
+    if(!startM){ placeStart(latlng,PICKED); afterPlace(); }
+    else if(!goalM){ placeGoal(latlng,PICKED); afterPlace(); }
+    else setStatus(4,"ピンはドラッグで動かせます。最初からやり直すときは「選び直す」を押してください。");
   };
   map.on("click",e=>setPoint(e.latlng));
   $("resetBtn").onclick=()=>{ if(busy) return; [startM,goalM].forEach(m=>m&&map.removeLayer(m)); startM=goalM=null; routes=[]; last=[]; routeLayer.clearLayers(); featLayer.clearLayers();
-    $("resetBtn").hidden=true; setStatus(1,"地図をタップして、出発地を選んでください。"); renderEmpty(); };
+    $("qStart").value="";$("qGoal").value=""; hideSugg($("sgStart"));hideSugg($("sgGoal"));
+    $("resetBtn").hidden=true; setStatus(1,"出発地と目的地を入力するか、地図をタップして選んでください。"); renderEmpty(); };
   $("locBtn").onclick=()=>{
-    if(!navigator.geolocation){setStatus(1,"この端末では現在地を取得できません。地図をタップしてください。");return;}
+    if(busy) return;
+    if(!navigator.geolocation){setStatus(1,"この端末では現在地を取得できません。出発地を入力してください。");return;}
     setStatus(1,"現在地を取得しています…");
     navigator.geolocation.getCurrentPosition(p=>{
-      const ll=L.latLng(p.coords.latitude,p.coords.longitude);
-      if(goalM){map.removeLayer(goalM);goalM=null;}
-      if(startM){map.removeLayer(startM);startM=null;}
-      map.setView(ll,16); setPoint(ll);
-    },()=>setStatus(1,"現在地を取得できませんでした。地図をタップして出発地を選んでください。"),{enableHighAccuracy:true,timeout:10000});
+      placeStart(L.latLng(p.coords.latitude,p.coords.longitude),"現在地");
+      if(!goalM) map.setView(startM.getLatLng(),16);
+      afterPlace();
+    },()=>setStatus(1,"現在地を取得できませんでした。出発地を入力してください。"),{enableHighAccuracy:true,timeout:10000});
+  };
+
+  // ---------- 地名・住所の検索（Nominatim） ----------
+  let nomiLast=0;
+  const nomiGate=async()=>{const w=nomiLast+1100-Date.now(); if(w>0) await new Promise(r=>setTimeout(r,w)); nomiLast=Date.now();};
+  const geocode=async(q)=>{
+    await nomiGate();
+    const b=map.getBounds();
+    const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=6&countrycodes=jp&accept-language=ja&addressdetails=0&viewbox=${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)},${b.getSouth().toFixed(4)}`;
+    const list=await fetchJSON(url,{},12000);
+    return list.map(x=>{const parts=(x.display_name||"").split(",").map(t=>t.trim());
+      return {ll:L.latLng(+x.lat,+x.lon), name:x.name||parts[0], sub:parts.slice(1,4).join("、")};});
+  };
+  const hideSugg=ul=>{ul.hidden=true;ul.innerHTML="";};
+  const showSugg=(ul,items,onPick)=>{
+    ul.innerHTML="";
+    if(!items.length){ const li=document.createElement("li"); li.className="msg"; li.textContent="見つかりませんでした。駅名や住所で試してください。"; ul.appendChild(li); }
+    items.forEach(it=>{const li=document.createElement("li");const bt=document.createElement("button");bt.type="button";
+      bt.innerHTML=`<span></span><small></small>`; bt.firstChild.textContent=it.name; bt.lastChild.textContent=it.sub;
+      bt.onclick=()=>{hideSugg(ul);onPick(it);}; li.appendChild(bt); ul.appendChild(li);});
+    ul.hidden=false;
+  };
+  const fields={
+    start:{input:$("qStart"),ul:$("sgStart"),place:placeStart,get m(){return startM;}},
+    goal:{input:$("qGoal"),ul:$("sgGoal"),place:placeGoal,get m(){return goalM;}},
+  };
+  const searchField=async(f,{autoPick}={})=>{
+    const q=f.input.value.trim();
+    if(!q) return false;
+    const li=document.createElement("li"); li.className="msg"; li.textContent="検索しています…"; f.ul.innerHTML=""; f.ul.appendChild(li); f.ul.hidden=false;
+    let items=[];
+    try{ items=await geocode(q); }catch(e){ f.ul.innerHTML='<li class="msg">検索できませんでした。少し待ってからお試しください。</li>'; return false; }
+    if(autoPick&&items.length){ f.place(items[0].ll,items[0].name); 
+      if(items.length>1) showSugg(f.ul,items,it=>{f.place(it.ll,it.name);afterPlace();}); else hideSugg(f.ul);
+      return true; }
+    showSugg(f.ul,items,it=>{f.place(it.ll,it.name);afterPlace();});
+    return false;
+  };
+  Object.values(fields).forEach(f=>{
+    f.input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); if(!busy) searchField(f); } if(e.key==="Escape") hideSugg(f.ul); });
+    f.input.addEventListener("input",()=>hideSugg(f.ul));
+  });
+  document.addEventListener("click",e=>{ if(!e.target.closest(".sfield")) Object.values(fields).forEach(f=>{ if(!f.ul.querySelector(".msg")||f.ul.textContent.includes("見つかり")) hideSugg(f.ul); }); });
+  $("goBtn").onclick=async()=>{
+    if(busy) return;
+    const need=Object.values(fields).filter(f=>{const v=f.input.value.trim(); return !(f.m && (v===PICKED||v==="現在地"||v===fieldsLast[f===fields.start?"start":"goal"]));});
+    for(const f of Object.values(fields)) if(!f.input.value.trim()&&!f.m){ setStatus(1,(f===fields.start?"出発地":"目的地")+"を入力するか、地図をタップしてください。"); f.input.focus(); return; }
+    $("goBtn").disabled=true;
+    try{
+      for(const f of need){ setStatus(2,`「${f.input.value.trim()}」を探しています…`); const ok=await searchField(f,{autoPick:true});
+        if(!ok){ setStatus(2,`「${f.input.value.trim()}」が見つかりませんでした。別の言い方で試すか、地図をタップしてください。`); return; } }
+      afterPlace();
+    } finally { $("goBtn").disabled=false; }
   };
 
   // ---------- 外部データ ----------
@@ -267,6 +361,7 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     const elements=[]; let ok=0;
     for(const q of NOMI_QUERIES){
       try{
+        await nomiGate();
         const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&viewbox=${bb.w},${bb.n},${bb.e},${bb.s}&bounded=1&format=jsonv2&limit=40&polygon_geojson=1&polygon_threshold=0.00005&accept-language=ja`;
         const list=await fetchJSON(url,{},12000); ok++;
         for(const x of list){
@@ -279,7 +374,6 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
           else parts.forEach(p=>elements.push({type:"way",tags,geometry:p.map(c=>({lat:c[1],lon:c[0]}))}));
         }
       }catch(e){ console.warn("nominatim",q,e); }
-      await sleep(1100);
     }
     if(!ok) throw new Error("nominatim");
     return {elements};
