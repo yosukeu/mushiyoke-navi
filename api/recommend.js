@@ -4,6 +4,7 @@
 //   → このAPIを「何でも聞けるGemini」として悪用されにくくする
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+const FALLBACK_MODELS = ["gemini-3.1-flash-lite", "gemini-3.6-flash"];
 const ENDPOINT = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 // かんたんな回数制限（同じ人から1分に6回まで）。サーバーが再起動するとリセットされる簡易版。
@@ -90,26 +91,37 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: "送られたデータの形が正しくありません。" });
   }
 
-  try {
-    const r = await fetch(ENDPOINT(MODEL), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: buildPrompt(data) }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 800 },
-      }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.status === 429) return res.status(429).json({ error: "AIの無料枠の上限に達しました。少し待ってからお試しください。" });
-    if (!r.ok) {
-      console.error("Gemini error", r.status, j?.error?.message);
-      return res.status(502).json({ error: "AIから回答を得られませんでした。" });
+  // 混雑（503）や上限（429）のときは、別の無料モデルに切り替えて1回ずつ試す
+  const models = [...new Set([MODEL, ...FALLBACK_MODELS])];
+  const prompt = buildPrompt(data);
+  let lastStatus = 0;
+  for (const m of models) {
+    try {
+      const c = new AbortController();
+      const t = setTimeout(() => c.abort(), 15000);
+      const r = await fetch(ENDPOINT(m), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 800 },
+        }),
+        signal: c.signal,
+      }).finally(() => clearTimeout(t));
+      const j = await r.json().catch(() => ({}));
+      lastStatus = r.status;
+      if (!r.ok) {
+        console.error("Gemini error", m, r.status, j?.error?.message);
+        continue; // 次のモデルへ
+      }
+      const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
+      if (!text) { console.error("Gemini empty", m); continue; }
+      return res.status(200).json({ text, model: m });
+    } catch (e) {
+      console.error("Gemini fetch", m, e?.name || e);
+      lastStatus = 504;
     }
-    const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
-    if (!text) return res.status(502).json({ error: "AIの回答が空でした。もう一度お試しください。" });
-    return res.status(200).json({ text, model: MODEL });
-  } catch (e) {
-    console.error(e);
-    return res.status(502).json({ error: "AIに接続できませんでした。" });
   }
+  if (lastStatus === 429) return res.status(429).json({ error: "AIの無料枠の上限に達しました。少し待ってからお試しください。" });
+  return res.status(503).json({ error: "AIが混み合っています。少し待ってからもう一度お試しください。" });
 };
