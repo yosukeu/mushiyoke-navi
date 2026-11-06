@@ -64,23 +64,27 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: "送られたデータの形が正しくありません。" });
   }
 
-  const body = "data=" + encodeURIComponent(buildQuery(bb));
+  const q = buildQuery(bb);
+  // 送り方を2通り試す（POSTフォーム → GETクエリ）。サーバーによって受け付ける形が違うため。
+  const attempts = [];
   for (const url of MIRRORS) {
+    attempts.push([url, { method: "POST", body: new URLSearchParams({ data: q }), headers: { "User-Agent": UA } }, url]);
+    attempts.push([url + "?data=" + encodeURIComponent(q), { method: "GET", headers: { "User-Agent": UA } }, url + " (GET)"]);
+  }
+  const started = Date.now();
+  for (const [u, opt, label] of attempts) {
+    if (Date.now() - started > 45000) break;
     try {
-      const r = await fetchWithTimeout(
-        url,
-        { method: "POST", body, headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA, Accept: "application/json" } },
-        20000
-      );
+      const r = await fetchWithTimeout(u, opt, 12000);
       if (!r.ok) {
-        console.error("overpass", url, r.status);
+        console.error("overpass", label, r.status, (await r.text().catch(() => "")).slice(0, 120));
         continue;
       }
       const j = await r.json();
       res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=604800");
       return res.status(200).json({ elements: j.elements || [] });
     } catch (e) {
-      console.error("overpass", url, e?.name || e);
+      console.error("overpass", label, e?.name || e);
     }
   }
   return res.status(502).json({ error: "周辺施設のデータを取得できませんでした。" });
