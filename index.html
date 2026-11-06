@@ -334,7 +334,8 @@ async function askAI(){
   $('aiHeading').textContent='ルートを比較しています…';$('aiSub').textContent=weatherLine();
   $('aiText').innerHTML='<span class="loading"><span class="spinner"></span> AIからの回答を取得しています</span>';setSize('expanded');
   try{
-    const res=await fetchJSON(CONFIG.aiEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(buildPayload())},30000).catch(async e=>{throw e});
+    const c=new AbortController();const tm=setTimeout(()=>c.abort(),45000);let r;try{r=await fetch(CONFIG.aiEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(buildPayload()),signal:c.signal})}finally{clearTimeout(tm)}
+    const res=await r.json().catch(()=>({}));if(!r.ok)throw new Error(res.error||('HTTP '+r.status));
     if(typeof res.text!=='string'||!res.text.trim())throw new Error('AIの回答が空でした');
     const lines=res.text.trim().split('\n');
     const first=lines[0].match(/^おすすめ[：:]\s*(.+)$/);
@@ -344,7 +345,7 @@ async function askAI(){
     const m=first&&first[1].match(/(?:ルート\s*)?([A-C])\b/);if(m){const idx=m[1].charCodeAt(0)-65;if(state.routes[idx]){state.selected=idx;drawRoutes()}}
   }catch(e){
     $('aiHeading').textContent='AIの説明を取得できませんでした';$('aiSub').textContent='ルート検索の結果はそのまま残っています';
-    $('aiText').textContent=/429/.test(e.message)?'AIの無料枠の上限に達したか、短時間に聞きすぎました。1分ほど待ってから試してください。':'通信状況を確認して、もう一度試してください。';
+    $('aiText').textContent=/^HTTP|abort|fetch/i.test(e.message||'')?'通信状況を確認して、もう一度試してください。':e.message;
     const retry=document.createElement('button');retry.className='secondary';retry.type='button';retry.textContent='もう一度試す';retry.onclick=askAI;
     $('aiText').appendChild(document.createElement('p'));$('aiText').appendChild(retry);
   }
