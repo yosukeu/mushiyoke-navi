@@ -125,7 +125,7 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
           <div class="sfield"><input id="qGoal" type="text" placeholder="目的地（駅名・施設名・住所）" autocomplete="off" aria-label="目的地" enterkeyhint="search"><ul class="sugg" id="sgGoal" hidden></ul></div>
           <button class="btn" id="goBtn" type="button">ルート検索</button>
         </div>
-        <p class="hint">入力してEnterで候補を表示します。地図をタップしてピンで選ぶこともできます。</p>
+        <p class="hint">入力して「ルート検索」。候補から選びたいときは入力欄でEnter。地図をタップしてピンで選ぶこともできます。</p>
       </div>
       <div class="status">
         <span class="step" id="stepNo">1</span>
@@ -325,7 +325,7 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     let items=[];
     try{ items=await geocode(q); }catch(e){ f.ul.innerHTML='<li class="msg">検索できませんでした。少し待ってからお試しください。</li>'; return false; }
     if(autoPick&&items.length){ f.place(items[0].ll,items[0].name); 
-      if(items.length>1) showSugg(f.ul,items,it=>{f.place(it.ll,it.name);afterPlace();}); else hideSugg(f.ul);
+      hideSugg(f.ul);
       return true; }
     showSugg(f.ul,items,it=>{f.place(it.ll,it.name);afterPlace();});
     return false;
