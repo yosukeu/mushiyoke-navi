@@ -1,606 +1,381 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f7f6">
 <title>ムシヨケ・ナビ</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-/* Layout: 地図(左)＋条件と比較パネル(右)。スマホでは縦に積む。 */
-:root{
-  --bg:#eef2f1; --surface:#ffffff; --ink:#1d2b33; --muted:#5b6c72; --line:#d3dcdb;
-  --accent:#137a6f; --accent-soft:#d5ece8;
-  --good:#2f8a4e; --warn:#c98a12; --bad:#c2412d;
-  --park:#3e9a52; --water:#2f86b5; --food:#d0702a; --lights:#c98a12; --garbage:#6b7a80;
-  --display:"Dela Gothic One","Hiragino Kaku Gothic StdN",sans-serif;
-  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,monospace;
-  color-scheme:light;
-}
-@media (prefers-color-scheme: dark){:root{
-  --bg:#121a1d; --surface:#1a2428; --ink:#e3ebea; --muted:#9aaaae; --line:#2c3a3f;
-  --accent:#4cc2b2; --accent-soft:#183a37;
-  --good:#5cc27c; --warn:#e4ad3d; --bad:#ec6a55; color-scheme:dark}}
-*{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-[hidden]{display:none!important}
-.wrap{max-width:1240px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin-bottom:14px}
-h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,4vw,36px);letter-spacing:.02em;margin:0}
-h1 span{color:var(--accent)}
-.tagline{color:var(--muted);margin:0}
-.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:18px;align-items:start}
-@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
-.mapcol{display:flex;flex-direction:column;gap:10px;min-width:0}
-.status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.step{font-family:var(--display);font-size:13px;background:var(--accent);color:var(--surface);border-radius:999px;padding:2px 10px}
-.status p{margin:0;flex:1;min-width:180px;font-weight:500}
-.status .tools{display:flex;gap:6px;flex-wrap:wrap}
-.search{display:flex;flex-direction:column;gap:8px;padding:12px}
-.srow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:start}
-.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:700 12px var(--body);margin-top:4px}
-.dot.s{background:#1d2b33}.dot.g{background:#137a6f}
-.sfield{position:relative;min-width:0}
-.sfield input{width:100%;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
-.sfield input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
-.sugg{list-style:none;margin:4px 0 0;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);position:absolute;left:0;right:0;z-index:1000;box-shadow:0 6px 18px rgba(0,0,0,.12)}
-.sugg li button{all:unset;display:block;width:100%;box-sizing:border-box;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.4}
-.sugg li button:hover,.sugg li button:focus-visible{background:var(--accent-soft)}
-.sugg li small{display:block;color:var(--muted);font-size:12px}
-.sugg li.msg{padding:6px 8px;color:var(--muted);font-size:13px}
-.search .hint{margin:0;font-size:12.5px;color:var(--muted)}
-.srow .btn{white-space:nowrap}
-#map{height:min(62vh,620px);min-height:380px;border-radius:10px;border:1px solid var(--line);z-index:0}
-.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:0}
-.heat{display:inline-block;width:56px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--good),var(--warn),var(--bad));margin:0 6px;vertical-align:1px}
-.side{display:flex;flex-direction:column;gap:14px;min-width:0}
-h2{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
-.wx{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;margin-bottom:10px}
-.wx b{font-family:var(--mono);font-weight:500}
-.presets,.filter{display:flex;flex-wrap:wrap;gap:6px}
-.presets{margin-bottom:10px}
-.chipbtn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
-.chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-details summary{cursor:pointer;font-size:13px;color:var(--accent);margin:4px 0 8px}
-.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
-.field{display:flex;flex-direction:column;gap:3px;min-width:0}
-.field label{font-size:12.5px;color:var(--muted)}
-.field output{font-family:var(--mono);font-size:13px;color:var(--ink)}
-select,input[type=range]{width:100%;font:inherit}
-select{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
-input[type=range]{accent-color:var(--accent)}
-.check{display:flex;align-items:center;gap:6px;font-size:13.5px}
-.routes{display:flex;flex-direction:column;gap:8px}
-.empty{color:var(--muted);font-size:14px;margin:0}
-.route{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer}
-.route[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.badge{font-family:var(--display);font-size:18px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--ink)}
-.route[aria-pressed="true"] .badge{background:var(--accent);color:var(--surface)}
-.rname{font-weight:700}
-.rmeta{font-size:12.5px;color:var(--muted)}
-.score{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.score b{font-size:22px;display:block;line-height:1.1}
-.score small{font-size:11px;color:var(--muted);font-family:var(--body)}
-.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:2px;background:var(--accent-soft);color:var(--accent)}
-.lv-low{color:var(--good)} .lv-mid{color:var(--warn)} .lv-high{color:var(--bad)}
-.tags{grid-column:2 / 4;display:flex;flex-wrap:wrap;gap:4px}
-.tag{font-size:11.5px;border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--muted)}
-.ai{border-color:var(--accent)}
-.aihead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-.aihead h2{margin:0}
-.btn{font:inherit;font-weight:700;border:none;border-radius:8px;padding:8px 16px;background:var(--accent);color:var(--surface);cursor:pointer}
-.btn[disabled]{opacity:.5;cursor:default}
-.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);font-weight:500;padding:5px 12px;font-size:13.5px}
-.aiout{white-space:pre-wrap;min-height:3em;font-size:14.5px}
-.ainote{font-size:12px;color:var(--muted);margin:8px 0 0}
-footer{margin-top:18px;font-size:12px;color:var(--muted)}
-.pin{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
-.pin span{transform:rotate(45deg);color:#fff;font:700 12px var(--body)}
+:root{color-scheme:light;--bg:#f5f7f6;--surface:#fff;--ink:#20332f;--muted:#61736e;--soft:#e9f2ef;--accent:#0c7568;--accent-ink:#fff;--line:#dce6e1;--low:#16806b;--mid:#a97708;--high:#b9433d;--shadow:0 2px 12px rgba(0,0,0,.06);--sheet-shadow:0 -4px 24px rgba(0,0,0,.1);--top:calc(env(safe-area-inset-top) + 12px);--bottom:env(safe-area-inset-bottom)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#101a18;--surface:#1b2925;--ink:#f0f5f2;--muted:#b2c1bb;--soft:#283f38;--accent:#59c5b0;--accent-ink:#102721;--line:#355048;--low:#69d3b0;--mid:#e8bd5b;--high:#f08078;--shadow:0 2px 12px rgba(0,0,0,.25);--sheet-shadow:0 -4px 24px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#101a18;--surface:#1b2925;--ink:#f0f5f2;--muted:#b2c1bb;--soft:#283f38;--accent:#59c5b0;--accent-ink:#102721;--line:#355048;--low:#69d3b0;--mid:#e8bd5b;--high:#f08078;--shadow:0 2px 12px rgba(0,0,0,.25);--sheet-shadow:0 -4px 24px rgba(0,0,0,.35)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.6 'Noto Sans JP',sans-serif}button,input,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}button:disabled{opacity:.45;cursor:not-allowed}h1,h2,h3,p{margin:0}h1{font-size:18px;line-height:1.35}h2{font-size:16px;line-height:1.35}small,.small{font-size:12px;color:var(--muted)}.num{font-family:Inter,'Noto Sans JP',sans-serif;font-variant-numeric:tabular-nums}.app{position:relative;height:100dvh;min-height:500px;overflow:hidden}#map{position:absolute;inset:0;z-index:0;background:#dce8dd}.leaflet-container{font-family:'Noto Sans JP',sans-serif}.leaflet-control-zoom{margin-top:200px!important}.leaflet-control-attribution{font-size:9px!important}.topbar{position:absolute;z-index:500;top:var(--top);left:16px;right:16px;display:flex;flex-direction:column;gap:9px;pointer-events:none}.topbar>*{pointer-events:auto}.brand{display:flex;align-items:center;justify-content:space-between;min-height:36px;filter:drop-shadow(0 1px 4px rgba(255,255,255,.85))}.brand h1{letter-spacing:-.5px;color:#07594f}.brand .sub{font-size:10px;display:block;color:#34534e;line-height:1.2}.tools{display:flex;gap:8px}.iconbtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);height:40px;min-width:40px;border-radius:12px;display:grid;place-items:center;box-shadow:var(--shadow)}.searchbox{border-radius:18px;padding:12px;background:var(--surface);box-shadow:0 6px 26px rgba(0,0,0,.14);border:1px solid var(--line)}.place{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:47px}.place+.place{border-top:1px solid var(--line)}.dot{width:12px;height:12px;border:3px solid var(--accent);border-radius:50%}.dot.end{background:var(--accent);border-radius:4px}.place input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:16px}.place input::placeholder{color:var(--muted);opacity:1}.place input:focus-visible{outline:0}.tiny{height:34px;border:1px solid var(--line);background:var(--soft);color:var(--accent);border-radius:10px;padding:0 10px;font-size:12px;font-weight:700}.primary{min-height:52px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:14px;font-size:15px;font-weight:700;width:100%;transition:transform .12s}.primary:active,.iconbtn:active,.tiny:active{transform:scale(.98)}.secondary{min-height:44px;background:var(--soft);color:var(--accent);border:0;border-radius:12px;padding:0 12px;font-weight:600}.searchaction{margin-top:8px}.hint{margin:6px 2px 0;font-size:11px;color:var(--muted)}.sheet{position:absolute;z-index:600;left:0;right:0;bottom:0;background:var(--surface);border-radius:24px 24px 0 0;box-shadow:var(--sheet-shadow);height:calc(112px + var(--bottom));max-height:calc(100dvh - 96px);transition:height .23s ease;display:flex;flex-direction:column;overflow:hidden}.sheet[data-size="middle"]{height:44dvh;min-height:280px}.sheet[data-size="expanded"]{height:82dvh}.handle-area{flex:0 0 32px;display:grid;place-items:center;cursor:grab;touch-action:pan-y}.handle{height:4px;width:40px;border-radius:99px;background:var(--line)}.sheet-inner{overflow:auto;overscroll-behavior:contain;padding:0 16px calc(20px + var(--bottom));flex:1}.sheet-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.sheet-title h2{font-size:16px}.welcome{padding-bottom:10px}.welcome p{color:var(--muted);margin-top:3px}.linkbutton{background:none;border:0;color:var(--accent);font-weight:700;padding:8px 0;font-size:12px}.routes{display:flex;flex-direction:column;gap:9px}.route-card{border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:13px 14px;text-align:left;color:var(--ink);width:100%;min-height:76px}.route-card.active{border:2px solid var(--accent);padding:12px 13px;min-height:112px;box-shadow:var(--shadow)}.route-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.tag{font-size:11px;font-weight:700;padding:3px 8px;background:var(--soft);color:var(--accent);border-radius:99px}.route-main{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:5px 0}.time{font:700 25px/1.2 Inter,'Noto Sans JP',sans-serif}.risknumber{font:700 23px/1.2 Inter,sans-serif}.risknumber small{font-size:11px;font-weight:500}.risk-low{color:var(--low)}.risk-mid{color:var(--mid)}.risk-high{color:var(--high)}.route-foot{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}.compact .time{font-size:16px}.compact .risknumber{font-size:17px}.compact .route-main{margin:0 0 4px}.ai-button{margin-top:14px}.settings{margin:12px 0 16px;border-top:1px solid var(--line);padding-top:10px}.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:9px 0 16px}.chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 12px;border-radius:99px;min-height:42px;font-size:13px}.chip[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--accent);font-weight:700}.radio{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}.radio label{border:1px solid var(--line);border-radius:12px;padding:9px 11px;cursor:pointer}.radio input{accent-color:var(--accent)}.manual{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.manual label{font-size:11px;color:var(--muted)}.manual input,.manual select{display:block;width:100%;min-height:43px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px;margin-top:5px}.aibox{background:var(--soft);border-radius:14px;padding:16px;margin-bottom:14px}.aibox strong{color:var(--accent)}.ai-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;margin:10px 0 14px}.alert{border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0;color:var(--muted);font-size:12px}.status{padding:8px 10px;border-radius:9px;background:var(--soft);margin:7px 0;font-size:12px;color:var(--ink)}.loading{display:inline-flex;gap:6px;align-items:center}.spinner{width:14px;height:14px;display:inline-block;border:2px solid var(--line);border-top-color:var(--accent);border-radius:100%;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.hidden{display:none!important}.maplabel{background:var(--surface);border:2px solid var(--accent);width:17px;height:17px;border-radius:50%;box-shadow:0 1px 4px #0005}.maplabel.end{background:var(--accent);border:2px solid #fff;border-radius:5px}.label-tag{font:700 12px Inter,sans-serif;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:2px 6px}.leaflet-div-icon{border:0!important;background:none!important}.footnote{font-size:11px;color:var(--muted);margin-top:11px}.desktop-notes{display:none}#toast{position:absolute;z-index:900;left:16px;right:16px;bottom:calc(130px + var(--bottom));text-align:center;pointer-events:none}#toast span{display:inline-block;background:var(--surface);color:var(--ink);padding:9px 14px;box-shadow:var(--shadow);border:1px solid var(--line);border-radius:12px;max-width:100%}
+@media(min-width:768px){.topbar{width:400px;left:auto;right:24px;top:20px}.brand{filter:none}.brand h1{color:var(--accent)}.sheet{left:auto;right:24px;top:235px;bottom:24px;width:400px;max-height:none!important;height:auto!important;border-radius:20px}.sheet-inner{padding-bottom:20px}.handle-area{display:none}.leaflet-control-zoom{margin-top:20px!important}.desktop-notes{display:block}}@media(max-height:650px) and (max-width:767px){.sheet[data-size="middle"]{height:51dvh}.topbar{gap:4px}.brand .sub{display:none}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.ftag{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--muted)}.desc{font-size:12px;color:var(--muted);margin-top:2px}.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);margin-top:10px}.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.heatbar{display:inline-block;width:46px;height:7px;border-radius:4px;background:linear-gradient(90deg,var(--low),var(--mid),var(--high));margin:0 4px;vertical-align:1px}.aibox .rec{font-size:16px;font-weight:700;color:var(--accent);display:block;margin-top:2px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>ムシヨケ<span>・</span>ナビ</h1>
-    <p class="tagline">地図で出発地と目的地を選ぶと、虫に出会いにくい道をおすすめします</p>
-  </header>
-
-  <div class="grid">
-    <section class="mapcol" aria-label="地図">
-      <div class="panel search" role="search" aria-label="出発地と目的地の検索">
-        <div class="srow">
-          <span class="dot s" aria-hidden="true">出</span>
-          <div class="sfield"><input id="qStart" type="text" placeholder="出発地（例：東京駅）" autocomplete="off" aria-label="出発地" enterkeyhint="search"><ul class="sugg" id="sgStart" hidden></ul></div>
-          <button class="btn ghost" id="locBtn" type="button">現在地</button>
-        </div>
-        <div class="srow">
-          <span class="dot g" aria-hidden="true">着</span>
-          <div class="sfield"><input id="qGoal" type="text" placeholder="目的地（駅名・施設名・住所）" autocomplete="off" aria-label="目的地" enterkeyhint="search"><ul class="sugg" id="sgGoal" hidden></ul></div>
-          <button class="btn" id="goBtn" type="button">ルート検索</button>
-        </div>
-        <p class="hint">入力して「ルート検索」。候補から選びたいときは入力欄でEnter。地図をタップしてピンで選ぶこともできます。</p>
-      </div>
-      <div class="status">
-        <span class="step" id="stepNo">1</span>
-        <p id="statusText">出発地と目的地を入力するか、地図をタップして選んでください。</p>
-        <div class="tools">
-          <button class="btn ghost" id="resetBtn" type="button" hidden>選び直す</button>
-        </div>
-      </div>
-      <div id="map"></div>
-      <div class="legend">
-        <span><i style="background:var(--park)"></i>公園・緑地</span>
-        <span><i style="background:var(--water)"></i>川・水辺</span>
-        <span><i style="background:var(--food)"></i>飲食店</span>
-        <span><i style="background:var(--lights)"></i>コンビニ・自販機（夜に明るい）</span>
-        <span><i style="background:var(--garbage)"></i>ゴミ置き場</span>
-        <span>虫リスク 低<span class="heat"></span>高</span>
-      </div>
-    </section>
-
-    <div class="side">
-      <section class="panel" aria-labelledby="h-cond">
-        <h2 id="h-cond">条件</h2>
-        <div class="wx" id="wx"><span>地点を選ぶと、その場所の今の天気を取得します。</span></div>
-        <div class="presets" id="presets"></div>
-        <details id="manual">
-          <summary>条件を手動で変える</summary>
-          <div class="form">
-            <div class="field"><label for="month">月</label><select id="month"></select></div>
-            <div class="field"><label for="time">時間帯</label>
-              <select id="time"><option value="morning">朝</option><option value="day">昼</option><option value="dusk">夕方</option><option value="night">夜</option></select></div>
-            <div class="field"><label for="temp">気温 <output id="tempOut"></output></label><input type="range" id="temp" min="0" max="38" step="1"></div>
-            <div class="field"><label for="hum">湿度 <output id="humOut"></output></label><input type="range" id="hum" min="20" max="100" step="5"></div>
-            <label class="check"><input type="checkbox" id="rain"> 雨のあと</label>
-          </div>
-        </details>
-        <h2 style="margin-top:12px">特に避けたい虫</h2>
-        <div class="filter" id="filter"></div>
-      </section>
-
-      <section class="panel" aria-labelledby="h-routes">
-        <h2 id="h-routes">ルート比較</h2>
-        <div class="routes" id="routes"><p class="empty">出発地と目的地を選ぶと、徒歩ルートの候補をここに並べます。</p></div>
-      </section>
-
-      <section class="panel ai" aria-labelledby="h-ai">
-        <div class="aihead">
-          <h2 id="h-ai">AIのおすすめ</h2>
-          <div style="display:flex;gap:6px">
-            <button class="btn ghost" id="stop" type="button" hidden>止める</button>
-            <button class="btn" id="ask" type="button" disabled>AI（Gemini）に理由つきで聞く</button>
-          </div>
-        </div>
-        <div class="aiout" id="aiout"></div>
-        <p class="ainote" id="ainote">AIには、条件と各ルートの集計値だけを送ります（地点の住所や座標は送りません）。</p>
-      </section>
+<main class="app" id="app">
+  <div id="map" aria-label="徒歩ルート地図"></div>
+  <section class="topbar" aria-label="ルート検索">
+    <header class="brand"><div><h1>ムシヨケ・ナビ</h1><span class="sub">歩く道に、少しの安心を。</span></div><div class="tools"><button class="iconbtn" type="button" id="themeBtn" title="ライト・ダーク切替" aria-label="ライト・ダーク切替">◐</button><button class="iconbtn" type="button" id="settingsBtn" title="条件を変更" aria-label="条件を変更">☷</button></div></header>
+    <div class="searchbox">
+      <div class="place"><span class="dot" aria-hidden="true"></span><input id="startInput" autocomplete="off" aria-label="出発地" placeholder="出発地（施設・駅・住所）"><button class="tiny" id="locateBtn" type="button">現在地</button></div>
+      <div class="place"><span class="dot end" aria-hidden="true"></span><input id="endInput" autocomplete="off" aria-label="目的地" placeholder="どこまで歩きますか？"><button class="tiny" type="button" id="mapPickBtn">地図で選ぶ</button></div>
+      <button class="primary searchaction" id="searchBtn" type="button">ルートを探す</button>
+      <div class="hint" id="inputHint">入力してルート検索。地図をタップして地点も選べます。</div>
     </div>
-  </div>
-  <footer>プロトタイプ v0.2 ｜ 地図・ルート・周辺施設 © OpenStreetMap contributors（ルート：FOSSGIS OSRM、施設：Nominatim）、天気：Open-Meteo。虫リスクは環境と気象条件からの推定値で、実際の出現を保証するものではありません。</footer>
-</div>
-
+  </section>
+  <section class="sheet" id="sheet" data-size="closed" aria-label="ルート情報">
+    <div class="handle-area" id="dragHandle" role="button" tabindex="0" aria-label="結果パネルを開閉する"><div class="handle"></div></div>
+    <div class="sheet-inner" id="sheetScroll">
+      <div class="welcome" id="welcome"><h2>安心できそうな道を、見つけよう。</h2><p>出発地と目的地を指定すると、最大3本のルートを比較できます。</p><button class="linkbutton" id="welcomeSettings" type="button">特に避けたい虫・条件を設定する</button></div>
+      <div id="resultPanel" class="hidden"><div class="sheet-title"><h2 id="resultTitle">ルートを比較</h2><button type="button" class="linkbutton" id="resultSettings">条件を変更</button></div><div class="status hidden" id="status"></div><div class="routes" id="routeCards"></div><div class="legend"><span>地図の点：</span><span><i style="background:#3e9a52"></i>公園・緑地</span><span><i style="background:#2f86b5"></i>川・水辺</span><span><i style="background:#d0702a"></i>飲食店</span><span><i style="background:#c98a12"></i>コンビニ・自販機</span><span>選択中の道 低<span class="heatbar"></span>高</span></div><button class="primary ai-button" id="aiBtn" type="button">AIにおすすめの理由を聞く</button><p class="footnote">虫リスクは周辺環境・気象条件に基づく推定スコアです。実際の発生を保証しません。</p></div>
+      <div id="aiPanel" class="hidden"><div class="sheet-title"><h2>AIのおすすめ</h2><button class="linkbutton" id="aiBack" type="button">ルート比較に戻る</button></div><div class="aibox"><span class="small" id="aiLabel">AIのおすすめ</span><strong id="aiHeading" class="rec">ルートを比較しています</strong><p class="small" id="aiSub">周辺環境と条件を確認しています。</p></div><div id="aiText" class="ai-body" aria-live="polite"></div><button class="primary" type="button" id="aiMapBtn">地図でルートを確認</button><p class="footnote">AIの説明は参考情報です。現地状況や危険を保証・予測するものではありません。</p></div>
+      <div class="settings hidden" id="settings"><div class="sheet-title"><h2>条件を変更</h2><button class="linkbutton" type="button" id="closeSettings">閉じる</button></div><p class="small">特に避けたい虫（複数選択可）</p><div class="chiprow" id="bugs"></div><p class="small">気象・時間帯の条件</p><div class="radio"><label><input type="radio" name="weatherMode" value="now" checked> 今の天気</label><label><input type="radio" name="weatherMode" value="summer"> 真夏の夕方（デモ）</label><label><input type="radio" name="weatherMode" value="summernight"> 夏の夜（デモ）</label><label><input type="radio" name="weatherMode" value="rainy"> 梅雨の雨上がり（デモ）</label><label><input type="radio" name="weatherMode" value="manual"> 手動設定</label></div><div class="manual hidden" id="manual"><label>気温 °C<input id="manualTemp" type="number" value="25" min="-20" max="50"></label><label>湿度 %<input id="manualHumidity" type="number" value="65" min="0" max="100"></label><label>時間帯<select id="manualTime"><option value="morning">朝</option><option value="day">昼</option><option value="evening">夕方</option><option value="night">夜</option></select></label><label>月<select id="manualMonth"></select></label></div><button class="primary" type="button" id="applySettings">この条件を適用</button><p class="footnote">条件変更後、表示中のルートリスクを再評価します。現在の位置と経路は維持します。</p></div>
+    </div>
+  </section>
+  <div id="toast" role="status" aria-live="polite"></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script>
-(() => {
-  const $ = id => document.getElementById(id);
+'use strict';
+/* ムシヨケ・ナビ v0.4
+   画面：ChatGPTの改善設計書（全面地図＋ボトムシート）
+   中身：v0.3で動作確認済みの仕組み
+   - 徒歩ルート：FOSSGIS OSRM（徒歩プロファイル）＋左右に回り込む候補
+   - 周辺施設：Nominatim（OpenStreetMap）
+   - 天気：Open-Meteo
+   - AI：/api/recommend（Vercel → Gemini。キーはサーバー側の環境変数のみ） */
+const CONFIG={
+  aiEndpoint:'/api/recommend',
+  routeUrl:'https://routing.openstreetmap.de/routed-foot/route/v1/driving',
+  nominatimUrl:'https://nominatim.openstreetmap.org/search',
+  weatherUrl:'https://api.open-meteo.com/v1/forecast',
+};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state={start:null,end:null,picking:'start',routes:[],selected:0,bugs:new Set(['ゴキブリ']),weatherMode:'now',weather:null,live:null,features:[],loading:false,settingsOpen:false,aiOpen:false,theme:'auto'};
+let map,routeLayer,featLayer,startMarker=null,endMarker=null,toastHandle=null,origin=null;
 
-  // ---------- 虫リスクのモデル ----------
-  const BUGS = [
-    {id:"mosq", name:"蚊"}, {id:"roach", name:"ゴキブリ"},
-    {id:"flyer", name:"羽虫・ユスリカ"}, {id:"hae", name:"ハエ"},
-  ];
-  const W = { // 環境 × 虫の出やすさ
-    water:{mosq:.9, flyer:.8},
-    park:{mosq:1.0, flyer:.5, hae:.1},
-    food:{roach:1.0, hae:.8},
-    garbage:{roach:.7, hae:1.0},
-    lights:{flyer:1.0, roach:.2},
-  };
-  const RADIUS = {water:40, park:20, food:25, garbage:20, lights:25}; // この距離(m)以内を通ると影響あり
-  const FEAT_LABEL = {water:"川・水辺", park:"公園・緑地", food:"飲食店のそば", garbage:"ゴミ置き場", lights:"コンビニ・自販機"};
-  const SEASON = [.05,.05,.15,.35,.6,.85,1,1,.9,.6,.3,.1];
-  const TIME = {
-    mosq:{morning:1.0,day:.5,dusk:1.5,night:.8}, roach:{morning:.3,day:.2,dusk:.8,night:1.5},
-    flyer:{morning:.3,day:.4,dusk:1.0,night:1.4}, hae:{morning:.8,day:1.2,dusk:.8,night:.2},
-  };
-  const LIGHTS_TIME = {morning:.1,day:.1,dusk:.7,night:1};
-  const TIME_JA = {morning:"朝",day:"昼",dusk:"夕方",night:"夜"};
-  const TEMP = {mosq:[[13,0],[22,1],[32,1],[36,.6]], roach:[[12,0],[25,1]], flyer:[[10,0],[22,1]], hae:[[12,0],[25,1]]};
-  const lin=(t,p)=>{if(t<=p[0][0])return p[0][1];for(let i=1;i<p.length;i++)if(t<=p[i][0]){const[a,b]=p[i-1],[c,d]=p[i];return b+(d-b)*(t-a)/(c-a);}return p[p.length-1][1];};
+/* ---------- 虫リスクのモデル（v0.3と同じ） ---------- */
+const BUGS=[{id:'mosq',name:'蚊'},{id:'roach',name:'ゴキブリ'},{id:'flyer',name:'羽虫'},{id:'hae',name:'ハエ'}];
+const W={water:{mosq:.9,flyer:.8},park:{mosq:1.0,flyer:.5,hae:.1},food:{roach:1.0,hae:.8},garbage:{roach:.7,hae:1.0},lights:{flyer:1.0,roach:.2}};
+const RADIUS={water:40,park:20,food:25,garbage:20,lights:25};
+const FEAT_LABEL={water:'川・水辺',park:'公園・緑地',food:'飲食店',garbage:'ゴミ置き場',lights:'コンビニ・自販機'};
+const FEAT_COLOR={park:'#3e9a52',water:'#2f86b5',food:'#d0702a',lights:'#c98a12',garbage:'#6b7a80'};
+const SEASON=[.05,.05,.15,.35,.6,.85,1,1,.9,.6,.3,.1];
+const TIME={mosq:{morning:1.0,day:.5,evening:1.5,night:.8},roach:{morning:.3,day:.2,evening:.8,night:1.5},flyer:{morning:.3,day:.4,evening:1.0,night:1.4},hae:{morning:.8,day:1.2,evening:.8,night:.2}};
+const LIGHTS_TIME={morning:.1,day:.1,evening:.7,night:1};
+const TIME_JA={morning:'朝',day:'昼',evening:'夕方',night:'夜'};
+const TEMP={mosq:[[13,0],[22,1],[32,1],[36,.6]],roach:[[12,0],[25,1]],flyer:[[10,0],[22,1]],hae:[[12,0],[25,1]]};
+const lin=(t,p)=>{if(t<=p[0][0])return p[0][1];for(let i=1;i<p.length;i++)if(t<=p[i][0]){const[a,b]=p[i-1],[c,d]=p[i];return b+(d-b)*(t-a)/(c-a);}return p[p.length-1][1];};
+const DEMO={
+  summer:{temperature:29,humidity:75,time:'evening',month:8,rain:false,source:'demo',name:'真夏の夕方（デモ）'},
+  summernight:{temperature:27,humidity:80,time:'night',month:7,rain:false,source:'demo',name:'夏の夜（デモ）'},
+  rainy:{temperature:23,humidity:90,time:'morning',month:6,rain:true,source:'demo',name:'梅雨の雨上がり（デモ）'},
+};
+function activity(w){const a={};BUGS.forEach(({id,name})=>{
+  let v=lin(w.temperature,TEMP[id])*(.3+.7*SEASON[(w.month||1)-1])*TIME[id][w.time];
+  v*=id==='mosq'?(.5+w.humidity/100):(.8+.4*w.humidity/100);
+  if(w.rain&&(id==='mosq'||id==='flyer'))v*=id==='mosq'?1.3:1.2;
+  if(state.bugs.has(name))v*=2;
+  a[id]=v;});return a;}
 
-  const state = {month:new Date().getMonth()+1,time:"morning",temp:15,hum:60,rain:false,avoid:new Set(["roach"]),preset:"live",live:null,selected:null};
-  const PRESETS = [
-    {id:"live", name:"今の天気"},
-    {id:"summer-dusk", name:"真夏の夕方", s:{month:8,time:"dusk",temp:29,hum:75,rain:false}},
-    {id:"summer-night", name:"夏の夜", s:{month:7,time:"night",temp:27,hum:80,rain:false}},
-    {id:"rainy", name:"梅雨の雨上がり", s:{month:6,time:"morning",temp:23,hum:90,rain:true}},
-  ];
+/* ---------- 表示まわりの小物 ---------- */
+function toast(message){$('toast').innerHTML='<span>'+esc(message)+'</span>';clearTimeout(toastHandle);toastHandle=setTimeout(()=>$('toast').innerHTML='',3800)}
+function setSize(s){$('sheet').dataset.size=s;setTimeout(()=>{if(map)map.invalidateSize()},260)}
+const HINT='入力して「ルートを探す」。地図をタップして地点を選ぶこともできます。';
+function setBusy(v,msg=''){state.loading=v;$('searchBtn').disabled=v;$('searchBtn').textContent=v?'検索しています…':'ルートを探す';$('inputHint').textContent=msg||HINT}
+function updateTheme(){if(state.theme==='auto')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=state.theme;}
+function riskBand(score){return score<25?'low':score<60?'mid':'high'}
+function bandLabel(score){return score<25?'リスク低め':score<60?'少し注意':'注意が必要'}
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function labelOf(n){return String.fromCharCode(65+n)}
+function formatDistance(m){return m>=1000?(m/1000).toFixed(1)+'km':Math.round(m)+'m'}
+function mix(c1,c2,t){const h=c=>c.replace('#','').match(/../g).map(x=>parseInt(x,16));const a=h(c1),b=h(c2);return '#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('')}
+function heat(v,max){const t=Math.min(1,v/max);const lo=cssVar('--low'),md=cssVar('--mid'),hi=cssVar('--high');return t<.5?mix(lo,md,t*2):mix(md,hi,(t-.5)*2)}
+function weatherLine(){const w=state.weather;if(!w)return '';
+  if(w.source==='demo')return `条件：${w.name}（気温${w.temperature}℃・湿度${w.humidity}%）`;
+  if(w.source==='manual')return `条件：手動設定（${w.month}月・${TIME_JA[w.time]}・気温${w.temperature}℃・湿度${w.humidity}%）`;
+  if(w.source==='fallback')return `天気を取得できなかったため、仮の条件（気温${w.temperature}℃）で計算しています`;
+  return `今の天気：気温${w.temperature}℃・湿度${w.humidity}%・${w.rain?'直近に雨あり':'直近の雨なし'}・${TIME_JA[w.time]}`}
 
-  const activity=()=>{const a={};BUGS.forEach(({id})=>{
-    let v=lin(state.temp,TEMP[id])*(.3+.7*SEASON[state.month-1])*TIME[id][state.time];
-    v*= id==="mosq"?(.5+state.hum/100):(.8+.4*state.hum/100);
-    if(state.rain&&(id==="mosq"||id==="flyer")) v*= id==="mosq"?1.3:1.2;
-    if(state.avoid.has(id)) v*=2;
-    a[id]=v;});return a;};
-
-  // ---------- 幾何（出発地まわりのメートル座標） ----------
-  let origin=null;
-  const toXY=(lat,lng)=>[(lng-origin.lng)*Math.cos(origin.lat*Math.PI/180)*111320,(lat-origin.lat)*110540];
-  const segDist=(p,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy;let t=l?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);};
-  const inPoly=(p,poly)=>{let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const[xi,yi]=poly[i],[xj,yj]=poly[j];if(((yi>p[1])!==(yj>p[1]))&&(p[0]<(xj-xi)*(p[1]-yi)/(yj-yi)+xi))c=!c;}return c;};
-  const nearFeature=(p,f)=>{
-    const r=RADIUS[f.type];
-    if(p[0]<f.bb[0]-r||p[0]>f.bb[2]+r||p[1]<f.bb[1]-r||p[1]>f.bb[3]+r) return false;
-    if(f.pts.length===1) return Math.hypot(p[0]-f.pts[0][0],p[1]-f.pts[0][1])<=r;
-    if(f.closed&&inPoly(p,f.pts)) return true;
-    for(let i=1;i<f.pts.length;i++) if(segDist(p,f.pts[i-1],f.pts[i])<=r) return true;
-    return false;
-  };
-
-  // ---------- 地図 ----------
-  const map=L.map("map",{zoomControl:true}).setView([35.6812,139.7671],15);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
-  const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const pinIcon=(label,color)=>L.divIcon({className:"",html:`<div class="pin" style="background:${color}"><span>${label}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});
-  let startM=null, goalM=null;
-  const routeLayer=L.layerGroup().addTo(map), featLayer=L.layerGroup().addTo(map);
-
-  const setStatus=(n,t)=>{$("stepNo").textContent=n;$("statusText").textContent=t;};
-  const PICKED="地図で選んだ地点";
-  const fieldsLast={start:null,goal:null};
-  const placeStart=(ll,text)=>{
-    if(startM) startM.setLatLng(ll);
-    else { startM=L.marker(ll,{icon:pinIcon("出","#1d2b33"),draggable:true}).addTo(map);
-      startM.on("dragend",()=>{$("qStart").value=PICKED; goalM&&plan();}); }
-    if(text!=null){ $("qStart").value=text; fieldsLast.start=text; }
-    $("resetBtn").hidden=false;
-  };
-  const placeGoal=(ll,text)=>{
-    if(goalM) goalM.setLatLng(ll);
-    else { goalM=L.marker(ll,{icon:pinIcon("着","#137a6f"),draggable:true}).addTo(map);
-      goalM.on("dragend",()=>{$("qGoal").value=PICKED; startM&&plan();}); }
-    if(text!=null){ $("qGoal").value=text; fieldsLast.goal=text; }
-    $("resetBtn").hidden=false;
-  };
-  const afterPlace=()=>{
-    if(startM&&goalM) plan();
-    else if(startM){ map.panTo(startM.getLatLng()); setStatus(2,"次に、目的地を入力するか、地図をタップしてください。"); }
-    else if(goalM){ map.panTo(goalM.getLatLng()); setStatus(2,"出発地を入力するか、地図をタップしてください。"); }
-  };
-  const setPoint=(latlng)=>{
-    if(busy) return;
-    if(!startM){ placeStart(latlng,PICKED); afterPlace(); }
-    else if(!goalM){ placeGoal(latlng,PICKED); afterPlace(); }
-    else setStatus(4,"ピンはドラッグで動かせます。最初からやり直すときは「選び直す」を押してください。");
-  };
-  map.on("click",e=>setPoint(e.latlng));
-  $("resetBtn").onclick=()=>{ if(busy) return; [startM,goalM].forEach(m=>m&&map.removeLayer(m)); startM=goalM=null; routes=[]; last=[]; routeLayer.clearLayers(); featLayer.clearLayers();
-    $("qStart").value="";$("qGoal").value=""; hideSugg($("sgStart"));hideSugg($("sgGoal"));
-    $("resetBtn").hidden=true; setStatus(1,"出発地と目的地を入力するか、地図をタップして選んでください。"); renderEmpty(); };
-  $("locBtn").onclick=()=>{
-    if(busy) return;
-    if(!navigator.geolocation){setStatus(1,"この端末では現在地を取得できません。出発地を入力してください。");return;}
-    setStatus(1,"現在地を取得しています…");
-    navigator.geolocation.getCurrentPosition(p=>{
-      placeStart(L.latLng(p.coords.latitude,p.coords.longitude),"現在地");
-      if(!goalM) map.setView(startM.getLatLng(),16);
-      afterPlace();
-    },()=>setStatus(1,"現在地を取得できませんでした。出発地を入力してください。"),{enableHighAccuracy:true,timeout:10000});
-  };
-
-  // ---------- 地名・住所の検索（Nominatim） ----------
-  let nomiLast=0;
-  const nomiGate=async()=>{const w=nomiLast+1100-Date.now(); if(w>0) await new Promise(r=>setTimeout(r,w)); nomiLast=Date.now();};
-  const geocode=async(q)=>{
-    await nomiGate();
-    const b=map.getBounds();
-    const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=6&countrycodes=jp&accept-language=ja&addressdetails=0&viewbox=${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)},${b.getSouth().toFixed(4)}`;
-    const list=await fetchJSON(url,{},12000);
-    return list.map(x=>{const parts=(x.display_name||"").split(",").map(t=>t.trim());
-      return {ll:L.latLng(+x.lat,+x.lon), name:x.name||parts[0], sub:parts.slice(1,4).join("、")};});
-  };
-  const hideSugg=ul=>{ul.hidden=true;ul.innerHTML="";};
-  const showSugg=(ul,items,onPick)=>{
-    ul.innerHTML="";
-    if(!items.length){ const li=document.createElement("li"); li.className="msg"; li.textContent="見つかりませんでした。駅名や住所で試してください。"; ul.appendChild(li); }
-    items.forEach(it=>{const li=document.createElement("li");const bt=document.createElement("button");bt.type="button";
-      bt.innerHTML=`<span></span><small></small>`; bt.firstChild.textContent=it.name; bt.lastChild.textContent=it.sub;
-      bt.onclick=()=>{hideSugg(ul);onPick(it);}; li.appendChild(bt); ul.appendChild(li);});
-    ul.hidden=false;
-  };
-  const fields={
-    start:{input:$("qStart"),ul:$("sgStart"),place:placeStart,get m(){return startM;}},
-    goal:{input:$("qGoal"),ul:$("sgGoal"),place:placeGoal,get m(){return goalM;}},
-  };
-  const searchField=async(f,{autoPick}={})=>{
-    const q=f.input.value.trim();
-    if(!q) return false;
-    const li=document.createElement("li"); li.className="msg"; li.textContent="検索しています…"; f.ul.innerHTML=""; f.ul.appendChild(li); f.ul.hidden=false;
-    let items=[];
-    try{ items=await geocode(q); }catch(e){ f.ul.innerHTML='<li class="msg">検索できませんでした。少し待ってからお試しください。</li>'; return false; }
-    if(autoPick&&items.length){ f.place(items[0].ll,items[0].name); 
-      hideSugg(f.ul);
-      return true; }
-    showSugg(f.ul,items,it=>{f.place(it.ll,it.name);afterPlace();});
-    return false;
-  };
-  Object.values(fields).forEach(f=>{
-    f.input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); if(!busy) searchField(f); } if(e.key==="Escape") hideSugg(f.ul); });
-    f.input.addEventListener("input",()=>hideSugg(f.ul));
+/* ---------- 地図 ---------- */
+function markerIcon(end){return L.divIcon({html:'<div class="maplabel '+(end?'end':'')+'"></div>',iconSize:[17,17],iconAnchor:[8,8]})}
+function updateMarkers(){
+  if(startMarker){map.removeLayer(startMarker);startMarker=null}
+  if(endMarker){map.removeLayer(endMarker);endMarker=null}
+  if(state.start){startMarker=L.marker([state.start.lat,state.start.lng],{icon:markerIcon(false),draggable:true,zIndexOffset:1000}).addTo(map).bindTooltip('出発地');
+    startMarker.on('dragend',e=>{const ll=e.target.getLatLng();putPoint('start',{lat:ll.lat,lng:ll.lng,label:'地図で選んだ地点'},true);if(state.end)runSearch()})}
+  if(state.end){endMarker=L.marker([state.end.lat,state.end.lng],{icon:markerIcon(true),draggable:true,zIndexOffset:1000}).addTo(map).bindTooltip('目的地');
+    endMarker.on('dragend',e=>{const ll=e.target.getLatLng();putPoint('end',{lat:ll.lat,lng:ll.lng,label:'地図で選んだ地点'},true);if(state.start)runSearch()})}
+}
+function putPoint(which,point,keepView){
+  state[which]=point;$(which==='start'?'startInput':'endInput').value=point.label;updateMarkers();
+  state.picking=which==='start'?'end':'start';
+  if(!keepView&&state.start&&state.end&&!state.routes.length)map.fitBounds(L.latLngBounds([[state.start.lat,state.start.lng],[state.end.lat,state.end.lng]]).pad(.35),{maxZoom:15});
+}
+function initMap(){
+  if(typeof L==='undefined'){toast('地図を読み込めませんでした。ネット接続を確認してください。');return}
+  map=L.map('map',{zoomControl:false}).setView([35.6812,139.7671],15);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ｜ ルート FOSSGIS ｜ 天気 Open-Meteo'}).addTo(map);
+  L.control.zoom({position:'bottomleft'}).addTo(map);
+  featLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);
+  map.on('click',e=>{
+    if(state.loading)return;
+    if(state.start&&state.end&&state.routes.length){toast('ピンはドラッグで動かせます。入力欄から別の場所も検索できます');return}
+    const which=(state.picking==='end'&&!state.start)?'start':state.picking;
+    putPoint(which,{lat:e.latlng.lat,lng:e.latlng.lng,label:'地図で選んだ地点'},true);
+    if(state.start&&state.end)runSearch();
+    else toast((which==='start'?'出発地':'目的地')+'を設定しました。次は'+(which==='start'?'目的地':'出発地')+'をタップしてください');
   });
-  document.addEventListener("click",e=>{ if(!e.target.closest(".sfield")) Object.values(fields).forEach(f=>{ if(!f.ul.querySelector(".msg")||f.ul.textContent.includes("見つかり")) hideSugg(f.ul); }); });
-  $("goBtn").onclick=async()=>{
-    if(busy) return;
-    const need=Object.values(fields).filter(f=>{const v=f.input.value.trim(); return !(f.m && (v===PICKED||v==="現在地"||v===fieldsLast[f===fields.start?"start":"goal"]));});
-    for(const f of Object.values(fields)) if(!f.input.value.trim()&&!f.m){ setStatus(1,(f===fields.start?"出発地":"目的地")+"を入力するか、地図をタップしてください。"); f.input.focus(); return; }
-    $("goBtn").disabled=true;
-    try{
-      for(const f of need){ setStatus(2,`「${f.input.value.trim()}」を探しています…`); const ok=await searchField(f,{autoPick:true});
-        if(!ok){ setStatus(2,`「${f.input.value.trim()}」が見つかりませんでした。別の言い方で試すか、地図をタップしてください。`); return; } }
-      afterPlace();
-    } finally { $("goBtn").disabled=false; }
-  };
+}
 
-  // ---------- 外部データ ----------
-  const fetchJSON=async(url,opt={},ms=20000)=>{const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{...opt,signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json();}finally{clearTimeout(t);}};
-  const osrm=async(pts,alt)=>{
-    const url=`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${pts.map(p=>p.lng.toFixed(6)+","+p.lat.toFixed(6)).join(";")}?overview=full&geometries=geojson&alternatives=${alt?"3":"false"}`;
-    const j=await fetchJSON(url); if(j.code!=="Ok") throw new Error(j.code); return j.routes;
-  };
-  // 周辺施設：OpenStreetMap の検索サービス（Nominatim）で、範囲内の施設をカテゴリごとに探す。
-  // 利用ルール（1秒に1回まで）を守るため、順番に間隔をあけて問い合わせる。
-  const NOMI_QUERIES=["restaurant","cafe","convenience","park","river","pond"];
-  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const nominatim=async(bb)=>{
-    const elements=[]; let ok=0;
-    for(const q of NOMI_QUERIES){
-      try{
-        await nomiGate();
-        const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&viewbox=${bb.w},${bb.n},${bb.e},${bb.s}&bounded=1&format=jsonv2&limit=40&polygon_geojson=1&polygon_threshold=0.00005&accept-language=ja`;
-        const list=await fetchJSON(url,{},12000); ok++;
-        for(const x of list){
-          if(!/^(amenity|shop|leisure|waterway|natural|landuse)$/.test(x.category)) continue;
-          const tags={[x.category]:x.type,name:x.name||""};
-          const g=x.geojson;
-          const parts = !g||g.type==="Point" ? [] : g.type==="LineString" ? [g.coordinates] : g.type==="Polygon" ? [g.coordinates[0]]
-            : g.type==="MultiLineString" ? g.coordinates : g.type==="MultiPolygon" ? g.coordinates.map(p=>p[0]) : [];
-          if(!parts.length) elements.push({type:"node",lat:+x.lat,lon:+x.lon,tags});
-          else parts.forEach(p=>elements.push({type:"way",tags,geometry:p.map(c=>({lat:c[1],lon:c[0]}))}));
-        }
-      }catch(e){ console.warn("nominatim",q,e); }
-    }
-    if(!ok) throw new Error("nominatim");
-    return {elements};
-  };
-  // 予備：自前サーバー（/api/places）経由で Overpass API に問い合わせる
-  const overpassViaServer=async(bb)=>{
-    const r=await fetch("/api/places",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(bb)});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(j.error||"places");
-    return j;
-  };
-  const overpass=async(bb)=>{ try{ return await nominatim(bb); }catch(e){ return await overpassViaServer(bb); } };
-  const classify=t=>{
-    if(!t) return null;
-    if(/^(restaurant|fast_food|cafe|bar|pub|food_court|biergarten)$/.test(t.amenity||"")) return "food";
-    if(/^(waste_disposal|recycling|waste_basket)$/.test(t.amenity||"")) return "garbage";
-    if(t.shop==="convenience"||t.amenity==="vending_machine") return "lights";
-    if(t.waterway||t.natural==="water"||t.natural==="wetland") return "water";
-    if(t.leisure||t.landuse||t.natural) return "park";
-    return null;
-  };
-  const toFeatures=(j)=>{
-    const out=[];
-    for(const e of j.elements||[]){
-      const type=classify(e.tags); if(!type) continue;
-      let pts, ll=null;
-      if(e.type==="node"){ pts=[toXY(e.lat,e.lon)]; ll=[e.lat,e.lon]; }
-      else if(e.geometry) pts=e.geometry.filter(Boolean).map(g=>toXY(g.lat,g.lon));
-      else if(e.members) pts=e.members.flatMap(m=>(m.geometry||[]).filter(Boolean).map(g=>toXY(g.lat,g.lon)));
-      else continue;
-      if(!pts.length) continue;
-      if(type==="food"||type==="lights"||type==="garbage"){ // 建物として描かれた店は中心点にまとめる
-        if(pts.length>1){
-          const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length, cy=pts.reduce((s,p)=>s+p[1],0)/pts.length; pts=[[cx,cy]];
-          ll=[origin.lat+cy/110540, origin.lng+cx/(Math.cos(origin.lat*Math.PI/180)*111320)];
-        }
-      }
-      const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-      const closed=pts.length>3&&Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1])<1&&!(e.tags&&e.tags.waterway);
-      out.push({type,pts,closed,bb:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)],ll,name:(e.tags&&e.tags.name)||""});
-    }
-    return out;
-  };
-  const weather=async(ll)=>{
-    const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${ll.lat.toFixed(3)}&longitude=${ll.lng.toFixed(3)}&current=temperature_2m,relative_humidity_2m&hourly=precipitation&past_hours=6&forecast_hours=1&timezone=Asia%2FTokyo`);
+/* ---------- 通信 ---------- */
+async function fetchJSON(url,opts={},timeout=14000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{...opts,signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(t)}}
+let nomiLast=0;
+async function nomiGate(){const w=nomiLast+1100-Date.now();if(w>0)await new Promise(r=>setTimeout(r,w));nomiLast=Date.now()}
+async function geocode(query){
+  await nomiGate();
+  const b=map.getBounds();
+  const url=`${CONFIG.nominatimUrl}?format=jsonv2&limit=5&countrycodes=jp&accept-language=ja&q=${encodeURIComponent(query)}&viewbox=${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)},${b.getSouth().toFixed(4)}`;
+  const results=await fetchJSON(url,{},12000);
+  if(!results.length)throw new Error(`「${query}」が見つかりませんでした。駅名や住所で試してください`);
+  const x=results[0];const parts=(x.display_name||'').split(',').map(s=>s.trim());
+  return {lat:+x.lat,lng:+x.lon,label:x.name||parts[0]};
+}
+async function resolvePoint(which){
+  const input=$(which==='start'?'startInput':'endInput').value.trim();
+  if(!input)throw new Error((which==='start'?'出発地':'目的地')+'を入力するか、地図をタップしてください');
+  if(state[which]&&input===state[which].label)return state[which];
+  const p=await geocode(input);putPoint(which,p);return p;
+}
+
+/* 幾何：出発地まわりのメートル座標 */
+const toXY=(lat,lng)=>[(lng-origin.lng)*Math.cos(origin.lat*Math.PI/180)*111320,(lat-origin.lat)*110540];
+const segDist=(p,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy;let t=l?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)};
+const inPoly=(p,poly)=>{let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const[xi,yi]=poly[i],[xj,yj]=poly[j];if(((yi>p[1])!==(yj>p[1]))&&(p[0]<(xj-xi)*(p[1]-yi)/(yj-yi)+xi))c=!c}return c};
+function nearFeature(p,f){const r=RADIUS[f.type];
+  if(p[0]<f.bb[0]-r||p[0]>f.bb[2]+r||p[1]<f.bb[1]-r||p[1]>f.bb[3]+r)return false;
+  if(f.pts.length===1)return Math.hypot(p[0]-f.pts[0][0],p[1]-f.pts[0][1])<=r;
+  if(f.closed&&inPoly(p,f.pts))return true;
+  for(let i=1;i<f.pts.length;i++)if(segDist(p,f.pts[i-1],f.pts[i])<=r)return true;
+  return false}
+function sampleRoute(ll){ // ll: [[lat,lng],...] → 約10mごとの区間
+  const xy=ll.map(c=>toXY(c[0],c[1]));const s=[];let len=0;
+  for(let i=1;i<xy.length;i++){const a=xy[i-1],b=xy[i],L0=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L0<.01)continue;const n=Math.max(1,Math.round(L0/10));const A=ll[i-1],B=ll[i];
+    for(let k=0;k<n;k++){const t0=k/n,t1=(k+1)/n,tm=(t0+t1)/2;
+      s.push({p:[a[0]+(b[0]-a[0])*tm,a[1]+(b[1]-a[1])*tm],len:L0/n,a:[A[0]+(B[0]-A[0])*t0,A[1]+(B[1]-A[1])*t0],b:[A[0]+(B[0]-A[0])*t1,A[1]+(B[1]-A[1])*t1],types:[]})}
+    len+=L0}
+  return {samples:s,len}}
+const overlap=(A,B)=>{let n=0;for(const s of A.samples){for(const t of B.samples){if(Math.abs(s.p[0]-t.p[0])<15&&Math.abs(s.p[1]-t.p[1])<15){n++;break}}}return n/Math.max(1,A.samples.length)};
+
+async function osrm(pts,alt){
+  const url=`${CONFIG.routeUrl}/${pts.map(p=>p.lng.toFixed(6)+','+p.lat.toFixed(6)).join(';')}?overview=full&geometries=geojson&alternatives=${alt?'3':'false'}`;
+  const j=await fetchJSON(url,{},20000);if(j.code!=='Ok')throw new Error(j.code);return j.routes}
+async function getRoutes(a,b){
+  const [gx,gy]=toXY(b.lat,b.lng),d=Math.max(1,Math.hypot(gx,gy)),off=Math.max(150,d*.3);
+  const via=sign=>{const mx=gx/2-sign*gy/d*off,my=gy/2+sign*gx/d*off;return {lat:origin.lat+my/110540,lng:origin.lng+mx/(Math.cos(origin.lat*Math.PI/180)*111320)}};
+  const res=await Promise.allSettled([osrm([a,b],true),osrm([a,via(1),b],false),osrm([a,via(-1),b],false)]);
+  let cand=[];res.forEach(r=>{if(r.status==='fulfilled')cand.push(...r.value)});
+  if(!cand.length)throw new Error('徒歩ルートが見つかりませんでした。道路の近くを選んでください');
+  cand=cand.map(r=>{const ll=r.geometry.coordinates.map(c=>[c[1],c[0]]);return {coordinates:ll,...sampleRoute(ll)}}).filter(c=>c.samples.length).sort((x,y)=>x.len-y.len);
+  const shortest=cand[0].len,picked=[];
+  for(const c of cand){if(c.len>shortest*1.7)continue;if(picked.every(p=>overlap(c,p)<.8))picked.push(c);if(picked.length===3)break}
+  return picked.map(c=>({...c,distance:c.len,duration:c.len/80*60}));
+}
+async function getWeather(point){
+  const mode=state.weatherMode;
+  if(DEMO[mode])return {...DEMO[mode]};
+  if(mode==='manual')return {temperature:Number($('manualTemp').value)||25,humidity:Number($('manualHumidity').value)||65,time:$('manualTime').value,month:Number($('manualMonth').value)||new Date().getMonth()+1,rain:false,source:'manual'};
+  const h=new Date().getHours();const time=h>=5&&h<10?'morning':h>=10&&h<16?'day':h>=16&&h<19?'evening':'night';
+  try{
+    const j=await fetchJSON(`${CONFIG.weatherUrl}?latitude=${point.lat.toFixed(3)}&longitude=${point.lng.toFixed(3)}&current=temperature_2m,relative_humidity_2m&hourly=precipitation&past_hours=6&forecast_hours=1&timezone=Asia%2FTokyo`,{},9000);
     const rain=(j.hourly?.precipitation||[]).reduce((s,x)=>s+(x||0),0)>0.2;
-    const h=new Date().getHours();
-    const time=h>=5&&h<10?"morning":h>=10&&h<16?"day":h>=16&&h<19?"dusk":"night";
-    return {temp:Math.round(j.current.temperature_2m),hum:Math.round(j.current.relative_humidity_2m),rain,time,month:new Date().getMonth()+1};
-  };
-
-  // ---------- ルートの準備 ----------
-  let routes=[], feats=[], busy=false, last=[];
-  const sampleRoute=(coords)=>{ // [lng,lat][] → 10mごとの区間
-    const xy=coords.map(c=>toXY(c[1],c[0])); const s=[]; let len=0;
-    for(let i=1;i<xy.length;i++){const a=xy[i-1],b=xy[i],L0=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L0<.01)continue;const n=Math.max(1,Math.round(L0/10));
-      const A=coords[i-1],B=coords[i];
-      for(let k=0;k<n;k++){const t0=k/n,t1=(k+1)/n,tm=(t0+t1)/2;
-        s.push({p:[a[0]+(b[0]-a[0])*tm,a[1]+(b[1]-a[1])*tm],len:L0/n,
-          a:[A[1]+(B[1]-A[1])*t0,A[0]+(B[0]-A[0])*t0], b:[A[1]+(B[1]-A[1])*t1,A[0]+(B[0]-A[0])*t1]});}
-      len+=L0;}
-    return {samples:s,len};
-  };
-  const overlap=(A,B)=>{let n=0;for(const s of A.samples){for(const t of B.samples){if(Math.abs(s.p[0]-t.p[0])<15&&Math.abs(s.p[1]-t.p[1])<15){n++;break;}}}return n/Math.max(1,A.samples.length);};
-
-  async function plan(){
-    if(busy||!startM||!goalM) return;
-    busy=true; $("ask").disabled=true; $("aiout").textContent="";
-    const s=startM.getLatLng(), g=goalM.getLatLng();
-    origin={lat:s.lat,lng:s.lng};
-    const dist=s.distanceTo(g);
-    if(dist>6000){busy=false;setStatus(2,"徒歩向けのため、6km以内の2点を選んでください（ピンはドラッグで動かせます）。");return;}
+    return state.live={temperature:Math.round(j.current.temperature_2m),humidity:Math.round(j.current.relative_humidity_2m),time,month:new Date().getMonth()+1,rain,source:'open-meteo'};
+  }catch(e){return {temperature:20,humidity:65,time,month:new Date().getMonth()+1,rain:false,source:'fallback'}}
+}
+const NOMI_QUERIES=['restaurant','cafe','convenience','park','river','pond'];
+function classify(t){
+  if(/^(restaurant|fast_food|cafe|bar|pub|food_court|biergarten)$/.test(t.amenity||''))return 'food';
+  if(/^(waste_disposal|recycling|waste_basket)$/.test(t.amenity||''))return 'garbage';
+  if(t.shop==='convenience'||t.amenity==='vending_machine')return 'lights';
+  if(t.waterway||t.natural==='water'||t.natural==='wetland')return 'water';
+  if(t.leisure||t.landuse||t.natural)return 'park';
+  return null}
+async function getFeatures(routes){
+  const all=routes.flatMap(r=>r.coordinates);const lats=all.map(c=>c[0]),lngs=all.map(c=>c[1]);const pad=.0007;
+  const bb={s:(Math.min(...lats)-pad).toFixed(4),w:(Math.min(...lngs)-pad).toFixed(4),n:(Math.max(...lats)+pad).toFixed(4),e:(Math.max(...lngs)+pad).toFixed(4)};
+  const out=[];let ok=0;
+  for(const q of NOMI_QUERIES){
     try{
-      setStatus(3,"徒歩ルートの候補を探しています…");
-      routeLayer.clearLayers(); featLayer.clearLayers();
-      // 候補：そのままの経路＋左右に回り込む経路
-      const [gx,gy]=toXY(g.lat,g.lng), d=Math.max(1,Math.hypot(gx,gy)), off=Math.max(150,dist*.3);
-      const via=sign=>{const mx=gx/2-sign*gy/d*off, my=gy/2+sign*gx/d*off;
-        return L.latLng(origin.lat+my/110540, origin.lng+mx/(Math.cos(origin.lat*Math.PI/180)*111320));};
-      const results=await Promise.allSettled([osrm([s,g],true),osrm([s,via(1),g],false),osrm([s,via(-1),g],false)]);
-      let cand=[]; results.forEach(r=>{if(r.status==="fulfilled") cand.push(...r.value);});
-      if(!cand.length) throw new Error("route");
-      cand=cand.map(r=>({coords:r.geometry.coordinates,...sampleRoute(r.geometry.coordinates)})).filter(c=>c.samples.length).sort((a,b)=>a.len-b.len);
-      const shortest=cand[0].len; const picked=[];
-      for(const c of cand){ if(c.len>shortest*1.7) continue; if(picked.every(p=>overlap(c,p)<.8)) picked.push(c); if(picked.length===3) break; }
-      routes=picked;
-
-      setStatus(3,"周辺の公園・川・飲食店などを調べています…");
-      const all=routes.flatMap(r=>r.coords); const lats=all.map(c=>c[1]),lngs=all.map(c=>c[0]);
-      const pad=.0007; const bb={s:Math.min(...lats)-pad,w:Math.min(...lngs)-pad,n:Math.max(...lats)+pad,e:Math.max(...lngs)+pad};
-      const bb5={s:+bb.s.toFixed(4),w:+bb.w.toFixed(4),n:+bb.n.toFixed(4),e:+bb.e.toFixed(4)};
-      const [ov,wx]=await Promise.allSettled([overpass(bb5),weather(s)]);
-      feats = ov.status==="fulfilled"?toFeatures(ov.value):[];
-      if(wx.status==="fulfilled"){ state.live=wx.value; if(state.preset==="live") Object.assign(state,wx.value); }
-      routes.forEach((r,i)=>{ r.id="ABC"[i];
-        r.samples.forEach(sm=>{sm.types=[...new Set(feats.filter(f=>nearFeature(sm.p,f)).map(f=>f.type))];});
-        r.featM={}; r.samples.forEach(sm=>sm.types.forEach(t=>r.featM[t]=(r.featM[t]||0)+sm.len));
-        r.meters=Math.round(r.len/10)*10; r.minutes=Math.max(1,Math.round(r.len/80)); });
-      nameRoutes();
-      drawFeatures();
-      state.selected=null;
-      map.fitBounds(L.latLngBounds(all.map(c=>[c[1],c[0]])),{padding:[30,30]});
-      setStatus(4, ov.status==="fulfilled" ? "結果が出ました。ルートをタップすると地図で確認できます。ピンはドラッグで動かせます。"
-        : "周辺施設のデータを取得できなかったため、天気だけで判定しています。少し待ってピンを動かすとやり直せます。");
-      $("ask").disabled=false;
-      render();
-    }catch(e){
-      console.error(e);
-      setStatus(2,"ルートを見つけられませんでした。道路の近くを選ぶか、少し待ってからピンを動かしてみてください。");
-    }finally{busy=false;}
+      await nomiGate();
+      const list=await fetchJSON(`${CONFIG.nominatimUrl}?q=${encodeURIComponent(q)}&viewbox=${bb.w},${bb.n},${bb.e},${bb.s}&bounded=1&format=jsonv2&limit=40&polygon_geojson=1&polygon_threshold=0.00005&accept-language=ja`,{},12000);ok++;
+      for(const x of list){
+        if(!/^(amenity|shop|leisure|waterway|natural|landuse)$/.test(x.category))continue;
+        const type=classify({[x.category]:x.type});if(!type)continue;
+        const g=x.geojson;
+        const parts=!g||g.type==='Point'?[]:g.type==='LineString'?[g.coordinates]:g.type==='Polygon'?[g.coordinates[0]]:g.type==='MultiLineString'?g.coordinates:g.type==='MultiPolygon'?g.coordinates.map(p=>p[0]):[];
+        const pushF=(ptsLL,isLine)=>{let pts=ptsLL.map(c=>toXY(c[0],c[1]));let ll=ptsLL.length===1?ptsLL[0]:null;
+          if((type==='food'||type==='lights'||type==='garbage')&&pts.length>1){const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cy=pts.reduce((s,p)=>s+p[1],0)/pts.length;pts=[[cx,cy]];ll=[origin.lat+cy/110540,origin.lng+cx/(Math.cos(origin.lat*Math.PI/180)*111320)]}
+          const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+          const closed=!isLine&&pts.length>3;
+          out.push({type,pts,closed,ll,name:x.name||'',bb:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]})};
+        if(!parts.length)pushF([[+x.lat,+x.lon]],false);
+        else parts.forEach(p=>pushF(p.map(c=>[c[1],c[0]]),g.type.includes('Line')));
+      }
+    }catch(e){console.warn('nominatim',q,e)}
   }
-  const nameRoutes=()=>{
-    const used=new Set();
-    routes.forEach((r,i)=>{
-      const top=Object.entries(r.featM).sort((a,b)=>b[1]-a[1])[0];
-      let n = i===0?"最短ルート": !top||top[1]<80?"住宅街ルート": {park:"緑の多いルート",water:"水辺を通るルート",food:"飲食店の多いルート",lights:"お店の多い通り",garbage:"裏通りルート"}[top[0]];
-      if(used.has(n)) n+=` ${i+1}`; used.add(n); r.name=n;
-      const parts=Object.entries(r.featM).filter(([,m])=>m>=50).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([t])=>FEAT_LABEL[t].replace("のそば",""));
-      r.desc= parts.length? parts.join("・")+"の近くを通る" : "目立った公園・水辺・飲食店が少ない";
-    });
-  };
-  const drawFeatures=()=>{
-    featLayer.clearLayers();
-    const color={park:css("--park"),water:css("--water"),food:css("--food"),lights:css("--lights"),garbage:css("--garbage")};
-    const shown=new Set();
-    feats.forEach(f=>{
-      if(f.pts.length!==1||!f.ll) return;
-      const hit=routes.some(r=>r.samples.some(sm=>Math.hypot(sm.p[0]-f.pts[0][0],sm.p[1]-f.pts[0][1])<=RADIUS[f.type]));
-      if(!hit) return;
-      const k=f.ll.map(v=>v.toFixed(5)).join(); if(shown.has(k)) return; shown.add(k);
-      const label=FEAT_LABEL[f.type].replace("のそば","");
-      L.circleMarker(f.ll,{radius:4,color:"#fff",weight:1,fillColor:color[f.type],fillOpacity:.9}).bindTooltip(f.name?`${f.name}（${label}）`:label).addTo(featLayer);
-    });
-  };
+  if(!ok)throw new Error('features');
+  return out;
+}
+function tagSamples(){state.routes.forEach(r=>{
+  r.samples.forEach(sm=>{sm.types=[...new Set(state.features.filter(f=>nearFeature(sm.p,f)).map(f=>f.type))]});
+  r.featM={};r.samples.forEach(sm=>sm.types.forEach(t=>r.featM[t]=(r.featM[t]||0)+sm.len))})}
+const K=8;
+function scoreAll(){const act=activity(state.weather);state.routes.forEach(r=>{
+  const byBug={};BUGS.forEach(b=>byBug[b.id]=0);
+  r.local=r.samples.map(sm=>{let v=0;sm.types.forEach(t=>{const lt=t==='lights'?LIGHTS_TIME[state.weather.time]:1;for(const b in W[t]){const x=W[t][b]*lt*act[b];byBug[b]+=x*sm.len/200;v+=x}});return v});
+  r.byBug=byBug;r.risk=Math.round(100*(1-Math.exp(-Object.values(byBug).reduce((a,b)=>a+b,0)/K)))})}
 
-  // ---------- 評価と表示 ----------
-  const K=8;
-  const evaluate=()=>{const act=activity();return routes.map(r=>{
-    const byBug={};BUGS.forEach(b=>byBug[b.id]=0);
-    const local=r.samples.map(sm=>{let v=0;(sm.types||[]).forEach(t=>{const lt=t==="lights"?LIGHTS_TIME[state.time]:1;for(const b in W[t]){const x=W[t][b]*lt*act[b];byBug[b]+=x*sm.len/200;v+=x;}});return v;});
-    const raw=Object.values(byBug).reduce((a,b)=>a+b,0);
-    return {r,score:Math.round(100*(1-Math.exp(-raw/K))),byBug,local};});};
-  const level=s=>s<34?{c:"lv-low",t:"低め"}:s<60?{c:"lv-mid",t:"注意"}:{c:"lv-high",t:"高め"};
-  const mix=(c1,c2,t)=>{const h=c=>c.replace("#","").match(/../g).map(x=>parseInt(x,16));const a=h(c1),b=h(c2);return "#"+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,"0")).join("");};
-  const heat=(v,max)=>{const t=Math.min(1,v/max);return t<.5?mix(css("--good"),css("--warn"),t*2):mix(css("--warn"),css("--bad"),(t-.5)*2);};
+/* ---------- 描画 ---------- */
+function drawFeatures(){featLayer.clearLayers();const shown=new Set();
+  state.features.forEach(f=>{if(f.pts.length!==1||!f.ll)return;
+    if(!state.routes.some(r=>r.samples.some(sm=>Math.hypot(sm.p[0]-f.pts[0][0],sm.p[1]-f.pts[0][1])<=RADIUS[f.type])))return;
+    const k=f.ll.map(v=>v.toFixed(5)).join();if(shown.has(k))return;shown.add(k);
+    L.circleMarker(f.ll,{radius:4,color:'#fff',weight:1,fillColor:FEAT_COLOR[f.type],fillOpacity:.9}).bindTooltip(f.name?`${f.name}（${FEAT_LABEL[f.type]}）`:FEAT_LABEL[f.type]).addTo(featLayer)})}
+function drawRoutes(){
+  routeLayer.clearLayers();
+  const max=Math.max(.5,...state.routes.flatMap(r=>r.local||[0]));
+  state.routes.forEach((r,i)=>{if(i===state.selected)return;
+    L.polyline(r.coordinates,{color:'#24332f',weight:7,opacity:.2,interactive:false}).addTo(routeLayer);
+    L.polyline(r.coordinates,{color:cssVar('--'+riskBand(r.risk)),weight:4,opacity:.55,dashArray:'6 8',interactive:false}).addTo(routeLayer);
+    L.polyline(r.coordinates,{color:'#000',weight:20,opacity:0}).on('click',()=>chooseRoute(i)).addTo(routeLayer);
+    const m=r.coordinates[Math.floor(r.coordinates.length/2)];
+    L.marker(m,{icon:L.divIcon({html:`<span class="label-tag">${labelOf(i)}</span>`,iconSize:[22,20],iconAnchor:[11,10]})}).on('click',()=>chooseRoute(i)).addTo(routeLayer)});
+  const r=state.routes[state.selected];if(!r)return;
+  L.polyline(r.coordinates,{color:'#ffffff',weight:12,opacity:.95,interactive:false}).addTo(routeLayer);
+  r.samples.forEach((sm,i)=>L.polyline([sm.a,sm.b],{color:heat(r.local[i],max),weight:7,opacity:1,lineCap:'round',interactive:false}).addTo(routeLayer));
+  const m=r.coordinates[Math.floor(r.coordinates.length/2)];
+  L.marker(m,{icon:L.divIcon({html:`<span class="label-tag" style="border-color:var(--accent);color:var(--accent)">${labelOf(state.selected)}</span>`,iconSize:[22,20],iconAnchor:[11,10]}),interactive:false}).addTo(routeLayer);
+}
+function fitRoute(){if(!map||!state.routes.length)return;const coords=state.routes.flatMap(r=>r.coordinates);const pad=window.innerWidth<768?Math.min(window.innerHeight*.45,360):60;map.fitBounds(L.latLngBounds(coords),{paddingTopLeft:[24,window.innerWidth<768?230:100],paddingBottomRight:[window.innerWidth>=768?450:24,pad],maxZoom:17})}
+function chooseRoute(i){state.selected=i;drawRoutes();renderCards()}
+function bestIndex(){let bi=0;state.routes.forEach((r,i)=>{const b=state.routes[bi];if(r.risk<b.risk||(r.risk===b.risk&&r.distance<b.distance))bi=i});return bi}
+function shortestIndex(){let si=0;state.routes.forEach((r,i)=>{if(r.distance<state.routes[si].distance)si=i});return si}
+function renderCards(){
+  const cards=$('routeCards');cards.innerHTML='';
+  const best=bestIndex(),short=shortestIndex(),manyRoutes=state.routes.length>1;
+  state.routes.forEach((r,i)=>{
+    const chosen=i===state.selected;
+    const tagsTop=[manyRoutes&&i===best?'<span class="tag">おすすめ</span>':'',manyRoutes&&i===short&&i!==best?'<span class="tag" style="background:transparent;border:1px solid var(--line);color:var(--muted)">最短</span>':''].join(' ');
+    const feats=Object.entries(r.featM||{}).filter(([,m])=>m>=10).sort((a,b)=>b[1]-a[1]);
+    const desc=feats.length?feats.slice(0,2).map(([t])=>FEAT_LABEL[t]).join('・')+'の近くを通る':'公園・水辺・飲食店の近くをあまり通らない';
+    const card=document.createElement('button');card.type='button';card.className='route-card'+(chosen?' active':' compact');card.setAttribute('aria-pressed',chosen?'true':'false');
+    card.innerHTML=`<div class="route-head"><span class="small">ルート ${labelOf(i)} ${tagsTop}</span><span class="small risk-${riskBand(r.risk)}">${bandLabel(r.risk)}</span></div>
+      <div class="route-main"><strong class="time num">徒歩${Math.max(1,Math.round(r.duration/60))}分</strong><strong class="risknumber num risk-${riskBand(r.risk)}">${r.risk}<small> / 100</small></strong></div>
+      <div class="route-foot"><span>${formatDistance(r.distance)}・${esc(desc)}</span><span>${chosen?'選択中':'タップで表示'}</span></div>
+      ${chosen&&feats.length?`<div class="tags">${feats.map(([t,m])=>`<span class="ftag">${FEAT_LABEL[t]}のそば ${Math.round(m/10)*10}m</span>`).join('')}</div>`:''}`;
+    card.onclick=()=>chooseRoute(i);cards.appendChild(card)});
+  $('status').textContent=weatherLine();$('status').classList.toggle('hidden',!state.weather);
+}
+function showResults(){state.aiOpen=false;$('welcome').classList.add('hidden');$('resultPanel').classList.remove('hidden');$('aiPanel').classList.add('hidden');$('settings').classList.add('hidden');state.settingsOpen=false;
+  $('resultTitle').textContent=state.routes.length>1?state.routes.length+'つのルートを比較':'見つかったルート';renderCards();setSize('middle')}
 
-  const renderEmpty=()=>{$("routes").innerHTML='<p class="empty">出発地と目的地を選ぶと、徒歩ルートの候補をここに並べます。</p>';$("ask").disabled=true;$("aiout").textContent="";};
-  const renderWx=()=>{
-    const l=state.live;
-    $("wx").innerHTML = l
-      ? `<span>今の天気：<b>${l.temp}℃</b></span><span>湿度 <b>${l.hum}%</b></span><span>${l.rain?"直近に雨あり":"直近の雨なし"}</span><span>${TIME_JA[l.time]}</span>`
-      : `<span>地点を選ぶと、その場所の今の天気を取得します。</span>`;
-  };
-  const render=()=>{
-    document.querySelectorAll("#presets .chipbtn").forEach(b=>b.setAttribute("aria-pressed",b.dataset.id===state.preset));
-    document.querySelectorAll("#filter .chipbtn").forEach(b=>b.setAttribute("aria-pressed",state.avoid.has(b.dataset.id)));
-    $("month").value=state.month;$("time").value=state.time;$("temp").value=state.temp;$("hum").value=state.hum;$("rain").checked=state.rain;
-    $("tempOut").textContent=state.temp+"℃";$("humOut").textContent=state.hum+"%";
-    renderWx();
-    if(!routes.length) return;
-    const res=evaluate(); last=res;
-    const best=[...res].sort((a,b)=>a.score-b.score||a.r.len-b.r.len)[0];
-    if(!state.selected) state.selected=best.r.id;
-    const box=$("routes"); box.innerHTML="";
-    res.forEach(x=>{const lv=level(x.score);const b=document.createElement("button");b.type="button";b.className="route";b.setAttribute("aria-pressed",x.r.id===state.selected);
-      const tags=Object.entries(x.r.featM).sort((a,b)=>b[1]-a[1]).map(([t,m])=>`<span class="tag">${FEAT_LABEL[t]} ${Math.round(m/10)*10}m</span>`).join("")||'<span class="tag">気になる環境なし</span>';
-      b.innerHTML=`<span class="badge">${x.r.id}</span><span><span class="rname">${x.r.name}</span>${x===best&&res.length>1?'<span class="pill">おすすめ</span>':''}<br><span class="rmeta">徒歩${x.r.minutes}分・${(x.r.meters/1000).toFixed(1)}km・${x.r.desc}</span></span><span class="score ${lv.c}"><b>${x.score}</b><small>${lv.t}</small></span><span class="tags">${tags}</span>`;
-      b.onclick=()=>{state.selected=x.r.id;render();};box.appendChild(b);});
-    if(routes.length===1){const p=document.createElement("p");p.className="empty";p.textContent="この2点の間では、別の道の候補が見つかりませんでした。";box.appendChild(p);}
-    routeLayer.clearLayers();
-    const max=Math.max(.5,...res.flatMap(x=>x.local));
-    res.forEach(x=>{ if(x.r.id===state.selected) return;
-      const sel=()=>{state.selected=x.r.id;render();};
-      L.polyline(x.r.coords.map(c=>[c[1],c[0]]),{color:"#5b6c72",weight:5,opacity:.6,dashArray:"4 8"}).on("click",sel).addTo(routeLayer);
-      const m=x.r.coords[Math.floor(x.r.coords.length/2)];
-      L.marker([m[1],m[0]],{icon:L.divIcon({className:"",html:`<div class="pin" style="background:#5b6c72;width:22px;height:22px"><span style="font-size:11px">${x.r.id}</span></div>`,iconSize:[22,22],iconAnchor:[11,22]})}).on("click",sel).addTo(routeLayer);
-    });
-    const cur=res.find(x=>x.r.id===state.selected);
-    L.polyline(cur.r.coords.map(c=>[c[1],c[0]]),{color:"#1d2b33",weight:11,opacity:.75}).addTo(routeLayer);
-    cur.r.samples.forEach((sm,i)=>L.polyline([sm.a,sm.b],{color:heat(cur.local[i],max),weight:6,opacity:1,lineCap:"round",interactive:false}).addTo(routeLayer));
-    if(!aiBusy) $("aiout").textContent=ruleText(res);
-  };
-  const ruleText=(res)=>{
-    const sorted=[...res].sort((a,b)=>a.score-b.score), best=sorted[0], worst=sorted[sorted.length-1];
-    if(worst.score<15) return `いまの条件では、どのルートも虫は少なめです。いちばん近い「${res[0].r.name}」で問題ありません。夏の条件で試すと、違いがよくわかります。`;
-    const topBug=b=>BUGS.reduce((m,x)=>b.byBug[x.id]>b.byBug[m.id]?x:m,BUGS[0]).name;
-    if(best===worst) return `虫リスクは${best.score}です。${topBug(best)}に出会いやすい環境を通るので、気をつけて歩いてください。`;
-    return `ルール判定では「${best.r.name}」がおすすめです（リスク ${best.score}）。「${worst.r.name}」は${topBug(worst)}に出会いやすい環境を通ります。AIに聞くと、条件を踏まえた理由を説明します。`;
-  };
+/* ---------- 検索の流れ ---------- */
+async function runSearch(){
+  if(state.loading||!map)return;
+  setBusy(true,'地点を確認しています…');
+  try{
+    const a=await resolvePoint('start'),b=await resolvePoint('end');
+    if(map.distance([a.lat,a.lng],[b.lat,b.lng])<30)throw new Error('出発地と目的地を離して指定してください');
+    if(map.distance([a.lat,a.lng],[b.lat,b.lng])>6000)throw new Error('徒歩向けのため、6km以内の2地点を選んでください');
+    origin={lat:a.lat,lng:a.lng};
+    setBusy(true,'徒歩ルートの候補を探しています…');
+    const routes=await getRoutes(a,b);
+    state.routes=routes;state.selected=0;state.features=[];state.aiOpen=false;
+    setBusy(true,'ルート沿いの公園・水辺・飲食店と天気を確認しています…');
+    const [feat,w]=await Promise.allSettled([getFeatures(routes),getWeather(a)]);
+    state.weather=w.value;
+    state.features=feat.status==='fulfilled'?feat.value:[];
+    tagSamples();scoreAll();state.selected=bestIndex();
+    drawFeatures();drawRoutes();showResults();fitRoute();
+    if(feat.status!=='fulfilled')toast('周辺施設のデータを取得できず、天気だけで判定しています');
+    else if(state.weather.source==='fallback')toast('天気を取得できず、仮の条件で表示しています');
+  }catch(e){toast('検索できませんでした：'+(e.message||'通信を確認してください'))}
+  finally{setBusy(false)}
+}
+function openSettings(){state.settingsOpen=true;state.aiOpen=false;$('settings').classList.remove('hidden');$('welcome').classList.add('hidden');$('resultPanel').classList.add('hidden');$('aiPanel').classList.add('hidden');setSize('expanded')}
+function closeSettings(){state.settingsOpen=false;$('settings').classList.add('hidden');if(state.routes.length)showResults();else{$('welcome').classList.remove('hidden');setSize('closed')}}
+function renderBugs(){$('bugs').innerHTML='';BUGS.forEach(({name})=>{const b=document.createElement('button');b.className='chip';b.textContent=name;b.type='button';b.setAttribute('aria-pressed',state.bugs.has(name));b.onclick=()=>{state.bugs.has(name)?state.bugs.delete(name):state.bugs.add(name);renderBugs()};$('bugs').appendChild(b)})}
+async function applySettings(){
+  state.weatherMode=document.querySelector('input[name="weatherMode"]:checked').value;
+  if(state.routes.length&&state.start){
+    state.weather=(state.weatherMode==='now'&&state.live)?state.live:await getWeather(state.start);
+    scoreAll();state.selected=bestIndex();drawRoutes();
+  }
+  closeSettings();toast('条件を適用しました');
+}
 
-  // ---------- 操作 ----------
-  for(let m=1;m<=12;m++){const o=document.createElement("option");o.value=m;o.textContent=m+"月";$("month").appendChild(o);}
-  PRESETS.forEach(p=>{const b=document.createElement("button");b.className="chipbtn";b.type="button";b.textContent=p.name;b.dataset.id=p.id;
-    b.onclick=()=>{state.preset=p.id;Object.assign(state,p.id==="live"?(state.live||{}):p.s);state.selected=null;render();};$("presets").appendChild(b);});
-  BUGS.forEach(x=>{const b=document.createElement("button");b.className="chipbtn";b.type="button";b.textContent=x.name;b.dataset.id=x.id;
-    b.onclick=()=>{state.avoid.has(x.id)?state.avoid.delete(x.id):state.avoid.add(x.id);state.selected=null;render();};$("filter").appendChild(b);});
-  ["month","time","temp","hum","rain"].forEach(id=>$(id).addEventListener("input",()=>{
-    state.month=+$("month").value;state.time=$("time").value;state.temp=+$("temp").value;state.hum=+$("hum").value;state.rain=$("rain").checked;
-    state.preset=null;state.selected=null;render();}));
+/* ---------- AI（Gemini） ---------- */
+function buildPayload(){const w=state.weather;return {
+  conditions:{month:w.month,time:TIME_JA[w.time],temp:w.temperature,hum:w.humidity,rain:!!w.rain,avoid:[...state.bugs]},
+  routes:state.routes.map((r,i)=>{const feats=Object.entries(r.featM||{}).filter(([,m])=>m>=10).sort((a,b)=>b[1]-a[1]);return {
+    id:labelOf(i),name:`ルート${labelOf(i)}`,desc:feats.length?feats.slice(0,2).map(([t])=>FEAT_LABEL[t]).join('・')+'の近くを通る':'気になる環境が少ない',
+    minutes:Math.max(1,Math.round(r.duration/60)),meters:Math.round(r.distance),score:r.risk,
+    features:Object.fromEntries(feats.map(([t,m])=>[FEAT_LABEL[t],Math.round(m)])),
+    bugs:Object.fromEntries(BUGS.map(b=>[b.name,+r.byBug[b.id].toFixed(2)]))}})}}
+async function askAI(){
+  if(!state.routes.length)return;
+  state.aiOpen=true;$('resultPanel').classList.add('hidden');$('settings').classList.add('hidden');$('aiPanel').classList.remove('hidden');
+  $('aiHeading').textContent='ルートを比較しています…';$('aiSub').textContent=weatherLine();
+  $('aiText').innerHTML='<span class="loading"><span class="spinner"></span> AIからの回答を取得しています</span>';setSize('expanded');
+  try{
+    const res=await fetchJSON(CONFIG.aiEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(buildPayload())},30000).catch(async e=>{throw e});
+    if(typeof res.text!=='string'||!res.text.trim())throw new Error('AIの回答が空でした');
+    const lines=res.text.trim().split('\n');
+    const first=lines[0].match(/^おすすめ[：:]\s*(.+)$/);
+    $('aiHeading').textContent=first?first[1]:'AIによる比較結果';
+    $('aiSub').textContent='Gemini（無料枠）の回答・'+weatherLine();
+    $('aiText').textContent=(first?lines.slice(1):lines).join('\n').trim();
+    const m=first&&first[1].match(/(?:ルート\s*)?([A-C])\b/);if(m){const idx=m[1].charCodeAt(0)-65;if(state.routes[idx]){state.selected=idx;drawRoutes()}}
+  }catch(e){
+    $('aiHeading').textContent='AIの説明を取得できませんでした';$('aiSub').textContent='ルート検索の結果はそのまま残っています';
+    $('aiText').textContent=/429/.test(e.message)?'AIの無料枠の上限に達したか、短時間に聞きすぎました。1分ほど待ってから試してください。':'通信状況を確認して、もう一度試してください。';
+    const retry=document.createElement('button');retry.className='secondary';retry.type='button';retry.textContent='もう一度試す';retry.onclick=askAI;
+    $('aiText').appendChild(document.createElement('p'));$('aiText').appendChild(retry);
+  }
+}
 
-  // ---------- AI（Gemini・サーバー経由） ----------
-  let aiBusy=false, ctl=null;
-  const buildPayload=(res)=>({
-    conditions:{month:state.month,time:TIME_JA[state.time],temp:state.temp,hum:state.hum,rain:state.rain,avoid:[...state.avoid].map(id=>BUGS.find(b=>b.id===id).name)},
-    routes:res.map(x=>({id:x.r.id,name:x.r.name,desc:x.r.desc,minutes:x.r.minutes,meters:x.r.meters,score:x.score,
-      features:Object.fromEntries(Object.entries(x.r.featM).map(([t,m])=>[FEAT_LABEL[t],Math.round(m)])),
-      bugs:Object.fromEntries(BUGS.map(b=>[b.name,+x.byBug[b.id].toFixed(2)]))}))
-  });
-  $("ask").onclick=async()=>{
-    if(!last.length) return;
-    aiBusy=true; ctl=new AbortController(); $("ask").disabled=true; $("stop").hidden=false;
-    $("aiout").textContent="考えています…";
-    try{
-      const r=await fetch("/api/recommend",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(buildPayload(last)),signal:ctl.signal});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok||!j.text) throw new Error(j.error||"AIに接続できませんでした。");
-      $("aiout").textContent=j.text;
-      $("ainote").textContent="Gemini（無料枠）の回答です。条件を変えたら、もう一度聞いてみてください。";
-    }catch(e){
-      aiBusy=false; render();
-      if(e.name!=="AbortError") $("ainote").textContent=(e.message||"AIに接続できませんでした。")+" いまはルール判定を表示しています。";
-    }finally{aiBusy=false;$("ask").disabled=!last.length;$("stop").hidden=true;}
-  };
-  $("stop").onclick=()=>ctl?.abort();
-
-  render();
-})();
+/* ---------- 操作 ---------- */
+function locate(){
+  if(!navigator.geolocation){toast('このブラウザは現在地の取得に対応していません');return}
+  navigator.geolocation.getCurrentPosition(pos=>{putPoint('start',{lat:pos.coords.latitude,lng:pos.coords.longitude,label:'現在地'});if(!state.end)map.setView([pos.coords.latitude,pos.coords.longitude],16);toast('現在地を出発地にしました')},
+    ()=>toast('現在地を取得できませんでした。ブラウザの位置情報の許可を確認してください'),{enableHighAccuracy:true,timeout:12000,maximumAge:120000})}
+function bindEvents(){
+  for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=m;o.textContent=m+'月';$('manualMonth').appendChild(o)}
+  $('manualMonth').value=new Date().getMonth()+1;
+  $('searchBtn').onclick=runSearch;$('locateBtn').onclick=locate;
+  $('mapPickBtn').onclick=()=>{state.picking=state.start?'end':'start';toast('地図をタップして'+(state.picking==='start'?'出発地':'目的地')+'を選んでください')};
+  $('startInput').addEventListener('focus',()=>state.picking='start');$('endInput').addEventListener('focus',()=>state.picking='end');
+  ['startInput','endInput'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();runSearch()}}));
+  $('settingsBtn').onclick=openSettings;$('welcomeSettings').onclick=openSettings;$('resultSettings').onclick=openSettings;$('closeSettings').onclick=closeSettings;$('applySettings').onclick=applySettings;
+  $('aiBtn').onclick=askAI;$('aiBack').onclick=showResults;$('aiMapBtn').onclick=()=>{showResults();fitRoute()};
+  $('themeBtn').onclick=()=>{state.theme=state.theme==='auto'?'dark':state.theme==='dark'?'light':'auto';updateTheme();if(state.routes.length)drawRoutes();toast(state.theme==='dark'?'ダーク表示':state.theme==='light'?'ライト表示':'端末の表示設定に合わせます')};
+  document.querySelectorAll('input[name="weatherMode"]').forEach(el=>el.onchange=()=>{$('manual').classList.toggle('hidden',document.querySelector('input[name="weatherMode"]:checked').value!=='manual')});
+  $('dragHandle').onclick=()=>{if(state.settingsOpen)return;const s=$('sheet').dataset.size;setSize(s==='closed'?'middle':s==='middle'?'expanded':'middle')};
+  $('dragHandle').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('dragHandle').click()}};
+  let startY=null;
+  $('dragHandle').addEventListener('touchstart',e=>{startY=e.touches[0].clientY},{passive:true});
+  $('dragHandle').addEventListener('touchend',e=>{if(startY===null)return;const delta=e.changedTouches[0].clientY-startY;startY=null;if(Math.abs(delta)<35)return;
+    const s=$('sheet').dataset.size;setSize(delta<0?(s==='closed'?'middle':'expanded'):(s==='expanded'?'middle':'closed'))},{passive:true});
+  window.addEventListener('resize',()=>{if(map)map.invalidateSize()});
+  try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(state.routes.length)drawRoutes()})}catch(e){}
+}
+renderBugs();bindEvents();initMap();
 </script>
 </body>
 </html>
