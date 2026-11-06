@@ -157,7 +157,7 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
       </section>
     </div>
   </div>
-  <footer>プロトタイプ v0.2 ｜ 地図・ルート・周辺施設 © OpenStreetMap contributors（ルート：FOSSGIS OSRM、施設：Overpass API）、天気：Open-Meteo。虫リスクは環境と気象条件からの推定値で、実際の出現を保証するものではありません。</footer>
+  <footer>プロトタイプ v0.2 ｜ 地図・ルート・周辺施設 © OpenStreetMap contributors（ルート：FOSSGIS OSRM、施設：Nominatim）、天気：Open-Meteo。虫リスクは環境と気象条件からの推定値で、実際の出現を保証するものではありません。</footer>
 </div>
 
 <script>
@@ -259,13 +259,39 @@ footer{margin-top:18px;font-size:12px;color:var(--muted)}
     const url=`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${pts.map(p=>p.lng.toFixed(6)+","+p.lat.toFixed(6)).join(";")}?overview=full&geometries=geojson&alternatives=${alt?"3":"false"}`;
     const j=await fetchJSON(url); if(j.code!=="Ok") throw new Error(j.code); return j.routes;
   };
-  // 周辺施設は自前のサーバー（/api/places）経由で OpenStreetMap から取得する
-  const overpass=async(bb)=>{
+  // 周辺施設：OpenStreetMap の検索サービス（Nominatim）で、範囲内の施設をカテゴリごとに探す。
+  // 利用ルール（1秒に1回まで）を守るため、順番に間隔をあけて問い合わせる。
+  const NOMI_QUERIES=["restaurant","cafe","convenience","park","river","pond"];
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const nominatim=async(bb)=>{
+    const elements=[]; let ok=0;
+    for(const q of NOMI_QUERIES){
+      try{
+        const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&viewbox=${bb.w},${bb.n},${bb.e},${bb.s}&bounded=1&format=jsonv2&limit=40&polygon_geojson=1&polygon_threshold=0.00005&accept-language=ja`;
+        const list=await fetchJSON(url,{},12000); ok++;
+        for(const x of list){
+          if(!/^(amenity|shop|leisure|waterway|natural|landuse)$/.test(x.category)) continue;
+          const tags={[x.category]:x.type,name:x.name||""};
+          const g=x.geojson;
+          const parts = !g||g.type==="Point" ? [] : g.type==="LineString" ? [g.coordinates] : g.type==="Polygon" ? [g.coordinates[0]]
+            : g.type==="MultiLineString" ? g.coordinates : g.type==="MultiPolygon" ? g.coordinates.map(p=>p[0]) : [];
+          if(!parts.length) elements.push({type:"node",lat:+x.lat,lon:+x.lon,tags});
+          else parts.forEach(p=>elements.push({type:"way",tags,geometry:p.map(c=>({lat:c[1],lon:c[0]}))}));
+        }
+      }catch(e){ console.warn("nominatim",q,e); }
+      await sleep(1100);
+    }
+    if(!ok) throw new Error("nominatim");
+    return {elements};
+  };
+  // 予備：自前サーバー（/api/places）経由で Overpass API に問い合わせる
+  const overpassViaServer=async(bb)=>{
     const r=await fetch("/api/places",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(bb)});
     const j=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(j.error||"places");
     return j;
   };
+  const overpass=async(bb)=>{ try{ return await nominatim(bb); }catch(e){ return await overpassViaServer(bb); } };
   const classify=t=>{
     if(!t) return null;
     if(/^(restaurant|fast_food|cafe|bar|pub|food_court|biergarten)$/.test(t.amenity||"")) return "food";
